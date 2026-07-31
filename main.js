@@ -1,0 +1,600 @@
+(function(){
+
+var SUSPEITOS = ["Baronesa Ametista","Coronel Pimenta","Dr. Alcaçuz","Madame Corvo","Capitão Ferro","Srta. Marfim"];
+var ARMAS = ["Candelabro","Corda","Punhal","Chave Inglesa","Revólver","Cano de Chumbo"];
+var LOCAIS = ["Biblioteca","Salão de Baile","Cozinha","Escritório","Jardim de Inverno","Sala de Bilhar","Sala de Jantar","Vestíbulo","Terraço"];
+
+var state = {
+  screen: 'home',
+  name: '',
+  code: '',
+  playerId: null,
+  room: null,
+  hand: [],
+  notifications: [],
+  error: '',
+  joinError: '',
+  showCardModal: null,
+  showSuggestModal: false,
+  showAccuseModal: false,
+  suggestPick: {suspeito:SUSPEITOS[0], arma:ARMAS[0], local:LOCAIS[0]},
+  accusePick: {suspeito:SUSPEITOS[0], arma:ARMAS[0], local:LOCAIS[0]},
+  history: []
+};
+
+var unsubRoom = null;
+var unsubHand = null;
+var unsubNotify = null;
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function slugify(s){
+  return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+
+function genCode(){
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var out = '';
+  for(var i=0;i<5;i++){ out += chars[Math.floor(Math.random()*chars.length)]; }
+  return out;
+}
+
+function nowTs(){
+  var d = new Date();
+  return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function shuffle(arr){
+  var a = arr.slice();
+  for(var i=a.length-1;i>0;i--){
+    var j = Math.floor(Math.random()*(i+1));
+    var t=a[i]; a[i]=a[j]; a[j]=t;
+  }
+  return a;
+}
+
+function cardCategory(name){
+  if(SUSPEITOS.indexOf(name)>=0) return 'suspeito';
+  if(ARMAS.indexOf(name)>=0) return 'arma';
+  return 'local';
+}
+function cardLabel(cat){
+  return cat==='suspeito' ? 'Suspeito' : cat==='arma' ? 'Arma' : 'Cômodo';
+}
+
+function fv(){ return firebase.firestore.FieldValue; }
+
+function roomsCol(){ return db.collection('rooms'); }
+function handsCol(){ return db.collection('hands'); }
+function notifCol(){ return db.collection('notifications'); }
+function historyCol(){ return db.collection('history'); }
+function handKey(code,pid){ return code+'_'+pid; }
+
+async function createRoom(){
+  var name = document.getElementById('name-input').value.trim();
+  if(!name){ state.error='Digite seu nome de detetive.'; render(); return; }
+  var code = genCode();
+  var pid = code+'-'+slugify(name);
+  var room = {
+    code: code,
+    hostId: pid,
+    phase: 'lobby',
+    players: [{id:pid, name:name, eliminated:false}],
+    turnOrder: [],
+    turnIndex: 0,
+    secret: null,
+    log: [{text:name+' abriu o caso #'+code+'.', type:'system', ts:nowTs()}],
+    winner: null,
+    createdAt: Date.now()
+  };
+  try{
+    await roomsCol().doc(code).set(room);
+  }catch(e){
+    state.error = 'Não foi possível criar a sala. Confira sua conexão e as credenciais do Firebase.';
+    render();
+    return;
+  }
+  state.name = name;
+  state.code = code;
+  state.playerId = pid;
+  state.hand = [];
+  state.error = '';
+  attachListeners(code, pid);
+  state.screen = 'lobby';
+  render();
+}
+
+async function joinRoom(){
+  var name = document.getElementById('join-name-input').value.trim();
+  var code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if(!name || !code){ state.joinError='Preencha seu nome e o código do caso.'; render(); return; }
+  var pid = code+'-'+slugify(name);
+  try{
+    var snap = await roomsCol().doc(code).get();
+    if(!snap.exists){ state.joinError='Caso não encontrado. Confira o código.'; render(); return; }
+    var room = snap.data();
+    var already = room.players.some(function(p){return p.id===pid;});
+    if(!already){
+      if(room.phase!=='lobby'){
+        state.joinError='Esse caso já está em investigação. Peça ao anfitrião para abrir um novo.';
+        render();
+        return;
+      }
+      await roomsCol().doc(code).update({
+        players: fv().arrayUnion({id:pid, name:name, eliminated:false}),
+        log: fv().arrayUnion({text:name+' entrou no caso.', type:'system', ts:nowTs()})
+      });
+    }
+  }catch(e){
+    state.joinError = 'Não foi possível entrar na sala. Confira sua conexão e as credenciais do Firebase.';
+    render();
+    return;
+  }
+  state.name = name;
+  state.code = code;
+  state.playerId = pid;
+  state.joinError = '';
+  attachListeners(code, pid);
+  render();
+}
+
+function attachListeners(code, pid){
+  if(unsubRoom) unsubRoom();
+  if(unsubHand) unsubHand();
+  if(unsubNotify) unsubNotify();
+
+  unsubRoom = roomsCol().doc(code).onSnapshot(function(snap){
+    if(!snap.exists) return;
+    state.room = snap.data();
+    if(state.room.phase!=='lobby' && (state.screen==='lobby' || state.screen==='home')){
+      state.screen = 'game';
+    }
+    render();
+  });
+
+  unsubHand = handsCol().doc(handKey(code,pid)).onSnapshot(function(snap){
+    state.hand = snap.exists ? (snap.data().cards || []) : [];
+    render();
+  });
+
+  unsubNotify = notifCol().doc(handKey(code,pid)).onSnapshot(function(snap){
+    state.notifications = snap.exists ? (snap.data().items || []) : [];
+    render();
+  });
+}
+
+function detachListeners(){
+  if(unsubRoom){ unsubRoom(); unsubRoom=null; }
+  if(unsubHand){ unsubHand(); unsubHand=null; }
+  if(unsubNotify){ unsubNotify(); unsubNotify=null; }
+}
+
+async function startGame(){
+  var room = state.room;
+  if(room.players.length<3) return;
+
+  var secretSuspeito = shuffle(SUSPEITOS)[0];
+  var secretArma = shuffle(ARMAS)[0];
+  var secretLocal = shuffle(LOCAIS)[0];
+  var remaining = shuffle(
+    SUSPEITOS.filter(function(s){return s!==secretSuspeito;})
+    .concat(ARMAS.filter(function(a){return a!==secretArma;}))
+    .concat(LOCAIS.filter(function(l){return l!==secretLocal;}))
+  );
+  var players = room.players;
+  var hands = {};
+  players.forEach(function(p){ hands[p.id]=[]; });
+  remaining.forEach(function(card, idx){
+    var p = players[idx % players.length];
+    hands[p.id].push(card);
+  });
+
+  var batch = db.batch();
+  Object.keys(hands).forEach(function(pid){
+    batch.set(handsCol().doc(handKey(room.code,pid)), {cards:hands[pid]});
+    batch.set(notifCol().doc(handKey(room.code,pid)), {items:[]});
+  });
+  batch.update(roomsCol().doc(room.code), {
+    secret: {suspeito:secretSuspeito, arma:secretArma, local:secretLocal},
+    turnOrder: players.map(function(p){return p.id;}),
+    turnIndex: 0,
+    phase: 'playing',
+    log: fv().arrayUnion({text:'A investigação começou! '+players.length+' detetives receberam suas cartas.', type:'system', ts:nowTs()})
+  });
+  await batch.commit();
+  state.screen = 'game';
+  render();
+}
+
+function isMyTurn(){
+  var room = state.room;
+  if(!room || room.phase!=='playing') return false;
+  var activeOrder = room.turnOrder.filter(function(id){
+    var p = room.players.filter(function(pp){return pp.id===id;})[0];
+    return p && !p.eliminated;
+  });
+  if(activeOrder.length===0) return false;
+  var idx = room.turnIndex % activeOrder.length;
+  return activeOrder[idx] === state.playerId;
+}
+
+function currentTurnName(){
+  var room = state.room;
+  if(!room || room.phase!=='playing') return '';
+  var activeOrder = room.turnOrder.filter(function(id){
+    var p = room.players.filter(function(pp){return pp.id===id;})[0];
+    return p && !p.eliminated;
+  });
+  if(activeOrder.length===0) return '';
+  var idx = room.turnIndex % activeOrder.length;
+  var pid = activeOrder[idx];
+  var p = room.players.filter(function(pp){return pp.id===pid;})[0];
+  return p ? p.name : '';
+}
+
+async function passTurn(){
+  var room = state.room;
+  await roomsCol().doc(room.code).update({
+    turnIndex: fv().increment(1),
+    log: fv().arrayUnion({text:state.name+' passou a vez.', type:'normal', ts:nowTs()})
+  });
+}
+
+async function makeSuggestion(){
+  var room = state.room;
+  var pick = state.suggestPick;
+  await roomsCol().doc(room.code).update({
+    log: fv().arrayUnion({text:state.name+' sugeriu: '+pick.suspeito+' + '+pick.arma+' + '+pick.local+'. Aguardando alguém mostrar uma carta.', type:'normal', ts:nowTs()})
+  });
+  state.showSuggestModal = false;
+  render();
+}
+
+function openShowCard(card){
+  state.showCardModal = card;
+  render();
+}
+
+async function showCardTo(targetId){
+  var room = state.room;
+  var card = state.showCardModal;
+  var target = room.players.filter(function(p){return p.id===targetId;})[0];
+  await notifCol().doc(handKey(room.code,targetId)).set({
+    items: fv().arrayUnion({from:state.name, card:card, ts:nowTs()})
+  }, {merge:true});
+  await roomsCol().doc(room.code).update({
+    log: fv().arrayUnion({text:state.name+' mostrou uma carta para '+target.name+'.', type:'normal', ts:nowTs()})
+  });
+  state.showCardModal = null;
+  render();
+}
+
+async function makeAccusation(){
+  var room = state.room;
+  var pick = state.accusePick;
+  var correct = pick.suspeito===room.secret.suspeito && pick.arma===room.secret.arma && pick.local===room.secret.local;
+
+  if(correct){
+    await roomsCol().doc(room.code).update({
+      phase: 'ended',
+      winner: state.playerId,
+      log: fv().arrayUnion({text:'🏆 '+state.name+' resolveu o caso! A resposta era: '+room.secret.suspeito+' + '+room.secret.arma+' + '+room.secret.local+'.', type:'win', ts:nowTs()})
+    });
+    await historyCol().add({
+      code: room.code,
+      players: room.players.map(function(p){return p.name;}),
+      winner: state.name,
+      solution: room.secret,
+      finishedAtStr: new Date().toLocaleString('pt-BR'),
+      createdAt: fv().serverTimestamp()
+    });
+  }else{
+    await db.runTransaction(async function(tx){
+      var ref = roomsCol().doc(room.code);
+      var snap = await tx.get(ref);
+      var data = snap.data();
+      var players = data.players.map(function(p){
+        if(p.id===state.playerId){ p.eliminated = true; }
+        return p;
+      });
+      tx.update(ref, {
+        players: players,
+        log: fv().arrayUnion({text:state.name+' fez uma acusação final e errou. Está fora da disputa, mas continua revelando cartas.', type:'normal', ts:nowTs()})
+      });
+    });
+  }
+  state.showAccuseModal = false;
+  render();
+}
+
+async function goHistory(){
+  state.screen = 'history';
+  render();
+  try{
+    var snap = await historyCol().orderBy('createdAt','desc').limit(40).get();
+    state.history = snap.docs.map(function(d){ return d.data(); });
+  }catch(e){
+    state.history = [];
+  }
+  render();
+}
+
+function goHome(){
+  detachListeners();
+  state.screen = 'home';
+  state.room = null;
+  state.code = '';
+  state.playerId = null;
+  render();
+}
+
+function activePlayers(){
+  return state.room.players.filter(function(p){return p.id!==state.playerId;});
+}
+
+function renderHome(){
+  return ''+
+  '<div class="masthead">'+
+    '<div class="kicker">Dossiê Confidencial · Jogo de Dedução</div>'+
+    '<h1>Caso Arquivado</h1>'+
+    '<div class="sub">Companion digital para o seu jogo de detetive com tabuleiro físico</div>'+
+  '</div>'+
+  '<div class="panel">'+
+    '<span class="stamp">Novo Caso</span>'+
+    '<h2 style="margin-top:14px;font-size:18px;color:var(--gold-bright);">Abrir uma investigação</h2>'+
+    '<div class="field" style="margin-top:14px;">'+
+      '<label>Seu nome de detetive</label>'+
+      '<input type="text" id="name-input" placeholder="Ex: Inspetora Lima" maxlength="24">'+
+    '</div>'+
+    '<button class="primary" onclick="__actions.createRoom()">Criar Sala</button>'+
+    (state.error ? '<div class="error">'+esc(state.error)+'</div>' : '')+
+  '</div>'+
+  '<div class="panel">'+
+    '<span class="stamp">Entrar</span>'+
+    '<h2 style="margin-top:14px;font-size:18px;color:var(--gold-bright);">Entrar em um caso existente</h2>'+
+    '<div class="row" style="margin-top:14px;">'+
+      '<div class="field">'+
+        '<label>Seu nome de detetive</label>'+
+        '<input type="text" id="join-name-input" placeholder="Ex: Detetive Rocha" maxlength="24">'+
+      '</div>'+
+      '<div class="field">'+
+        '<label>Código do caso</label>'+
+        '<input type="text" id="join-code-input" placeholder="Ex: 7K3QZ" maxlength="6" style="text-transform:uppercase;">'+
+      '</div>'+
+    '</div>'+
+    '<button class="primary" onclick="__actions.joinRoom()">Entrar em Sala</button>'+
+    (state.joinError ? '<div class="error">'+esc(state.joinError)+'</div>' : '')+
+  '</div>'+
+  '<div style="text-align:center;">'+
+    '<button class="link" onclick="__actions.goHistory()">Ver histórico de casos resolvidos</button>'+
+  '</div>';
+}
+
+function renderLobby(){
+  var room = state.room;
+  var isHost = room.hostId === state.playerId;
+  var players = room.players;
+  var canStart = players.length>=3;
+  return ''+
+  '<div class="masthead">'+
+    '<div class="kicker">Sala de Espera</div>'+
+    '<h1>Caso Arquivado</h1>'+
+  '</div>'+
+  '<div class="panel">'+
+    '<div class="section-title"><h2>Código do Caso</h2><button class="small" onclick="__actions.goHome()">Sair</button></div>'+
+    '<div class="code-badge">'+esc(room.code)+'</div>'+
+    '<p class="hint">Compartilhe esse código com os outros jogadores para eles entrarem.</p>'+
+  '</div>'+
+  '<div class="panel">'+
+    '<div class="section-title"><h2>Detetives na sala ('+players.length+')</h2></div>'+
+    '<div class="players-list">'+
+      players.map(function(p){
+        var cls = 'player-row'+(p.id===state.playerId?' you':'');
+        return '<div class="'+cls+'">'+
+          '<span>'+esc(p.name)+(p.id===state.playerId?' (você)':'')+'</span>'+
+          (p.id===room.hostId ? '<span class="badge host">Anfitrião</span>' : '')+
+        '</div>';
+      }).join('')+
+    '</div>'+
+    (isHost ? (
+      '<div style="margin-top:16px;">'+
+        (canStart ?
+          '<button class="primary" onclick="__actions.startGame()">Iniciar Investigação</button>' :
+          '<button disabled>Iniciar Investigação (mín. 3 detetives)</button>'
+        )+
+      '</div>'
+    ) : '<p class="hint" style="margin-top:14px;">Aguardando o anfitrião iniciar a investigação...</p>')+
+  '</div>';
+}
+
+function renderGame(){
+  var room = state.room;
+  var me = room.players.filter(function(p){return p.id===state.playerId;})[0];
+  var myTurn = isMyTurn();
+  var ended = room.phase==='ended';
+
+  var html = '<div class="masthead">'+
+    '<div class="kicker">Caso #'+esc(room.code)+'</div>'+
+    '<h1>Caso Arquivado</h1>'+
+    (ended ? '' : '<div class="sub">'+(myTurn ? 'É a sua vez de agir, detetive.' : 'Vez de: '+esc(currentTurnName()))+'</div>')+
+  '</div>';
+
+  if(ended){
+    var win = room.players.filter(function(p){return p.id===room.winner;})[0];
+    html += '<div class="final-banner">'+
+      '<h2>Caso Encerrado</h2>'+
+      '<p class="solution-line">Vencedor: <b>'+esc(win?win.name:'?')+'</b></p>'+
+      '<p class="solution-line">Solução: '+esc(room.secret.suspeito)+' · '+esc(room.secret.arma)+' · '+esc(room.secret.local)+'</p>'+
+      '<div style="margin-top:14px;"><button class="primary" onclick="__actions.goHome()">Voltar ao Início</button></div>'+
+    '</div>';
+  }
+
+  html += '<div class="panel">'+
+    '<div class="section-title"><h2>Detetives</h2>'+(!ended?'<button class="small" onclick="__actions.goHome()">Sair</button>':'')+'</div>'+
+    '<div class="players-list">'+
+      room.players.map(function(p){
+        var cls = 'player-row';
+        if(p.id===state.playerId) cls+=' you';
+        if(p.eliminated) cls+=' eliminated';
+        var isTurnPlayer = !ended && currentTurnName()===p.name;
+        if(isTurnPlayer) cls+=' turn';
+        return '<div class="'+cls+'">'+
+          '<span>'+esc(p.name)+(p.id===state.playerId?' (você)':'')+'</span>'+
+          '<span>'+(isTurnPlayer?'<span class="badge turnb">Na vez</span>':'')+(p.eliminated?'<span class="badge">Eliminado</span>':'')+'</span>'+
+        '</div>';
+      }).join('')+
+    '</div>'+
+  '</div>';
+
+  if(!ended){
+    html += '<div class="panel">'+
+      '<div class="section-title"><h2>Suas Cartas</h2></div>'+
+      '<div class="hand">'+
+        (state.hand.length ? state.hand.map(function(c){
+          var cat = cardCategory(c);
+          return '<div class="card '+cat+'" onclick="__actions.openShowCard(\''+esc(c).replace(/'/g,"\\'")+'\')">'+
+            '<div class="cat">'+cardLabel(cat)+'</div>'+
+            '<div class="name">'+esc(c)+'</div>'+
+          '</div>';
+        }).join('') : '<div class="empty">Nenhuma carta.</div>')+
+      '</div>'+
+      '<p class="hint">Clique em uma carta para mostrá-la em segredo a um jogador específico.</p>'+
+    '</div>';
+
+    html += '<div class="panel">'+
+      '<div class="section-title"><h2>Ações</h2></div>'+
+      '<div class="row">'+
+        '<button onclick="__actions.openSuggest()">Fazer Palpite</button>'+
+        (myTurn ? '<button onclick="__actions.passTurn()">Passar a Vez</button>' : '')+
+        (!me.eliminated ? '<button class="danger" onclick="__actions.openAccuse()">Acusação Final</button>' : '')+
+      '</div>'+
+    '</div>';
+
+    if(state.notifications.length){
+      html += '<div class="panel">'+
+        '<div class="section-title"><h2>Cartas que te mostraram</h2></div>'+
+        '<div class="notify">'+
+          state.notifications.slice().reverse().map(function(n){
+            return '<div class="notify-item"><b>'+esc(n.from)+'</b> te mostrou: <b>'+esc(n.card)+'</b> <span style="color:var(--muted);">('+esc(n.ts)+')</span></div>';
+          }).join('')+
+        '</div>'+
+      '</div>';
+    }
+  }
+
+  html += '<div class="panel">'+
+    '<div class="section-title"><h2>Registro do Caso</h2></div>'+
+    '<div class="log">'+
+      (room.log.length ? room.log.slice().reverse().map(function(l){
+        return '<div class="log-entry '+l.type+'">'+esc(l.text)+'<span class="ts">'+esc(l.ts)+'</span></div>';
+      }).join('') : '<div class="empty">Nenhum evento ainda.</div>')+
+    '</div>'+
+  '</div>';
+
+  if(state.showCardModal){
+    var card = state.showCardModal;
+    var others = activePlayers();
+    html += '<div class="modal-overlay" onclick="if(event.target===this) __actions.closeModals()">'+
+      '<div class="modal">'+
+        '<h3>Mostrar "'+esc(card)+'" para:</h3>'+
+        (others.length ? others.map(function(p){
+          return '<button style="width:100%;margin-bottom:8px;" onclick="__actions.showCardTo(\''+p.id+'\')">'+esc(p.name)+'</button>';
+        }).join('') : '<div class="empty">Não há outros jogadores.</div>')+
+        '<div class="modal-actions"><button class="small" onclick="__actions.closeModals()">Cancelar</button></div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  if(state.showSuggestModal){
+    html += '<div class="modal-overlay" onclick="if(event.target===this) __actions.closeModals()">'+
+      '<div class="modal">'+
+        '<h3>Fazer um palpite</h3>'+
+        selectField('suggestPick','suspeito','Suspeito',SUSPEITOS)+
+        selectField('suggestPick','arma','Arma',ARMAS)+
+        selectField('suggestPick','local','Cômodo',LOCAIS)+
+        '<div class="modal-actions"><button class="primary" onclick="__actions.makeSuggestion()">Registrar Palpite</button><button class="small" onclick="__actions.closeModals()">Cancelar</button></div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  if(state.showAccuseModal){
+    html += '<div class="modal-overlay" onclick="if(event.target===this) __actions.closeModals()">'+
+      '<div class="modal">'+
+        '<h3>Acusação Final</h3>'+
+        '<p class="hint" style="margin-bottom:14px;">Atenção: se errar, você não poderá mais vencer nesta partida.</p>'+
+        selectField('accusePick','suspeito','Suspeito',SUSPEITOS)+
+        selectField('accusePick','arma','Arma',ARMAS)+
+        selectField('accusePick','local','Cômodo',LOCAIS)+
+        '<div class="modal-actions"><button class="danger" onclick="__actions.makeAccusation()">Confirmar Acusação</button><button class="small" onclick="__actions.closeModals()">Cancelar</button></div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  return html;
+}
+
+function selectField(stateKey, field, label, options){
+  var id = stateKey+'-'+field;
+  return '<div class="field">'+
+    '<label>'+label+'</label>'+
+    '<select id="'+id+'" onchange="__actions.updatePick(\''+stateKey+'\',\''+field+'\',this.value)">'+
+      options.map(function(o){
+        var sel = state[stateKey][field]===o ? ' selected' : '';
+        return '<option value="'+esc(o)+'"'+sel+'>'+esc(o)+'</option>';
+      }).join('')+
+    '</select>'+
+  '</div>';
+}
+
+function renderHistory(){
+  return ''+
+  '<div class="masthead">'+
+    '<div class="kicker">Arquivo Morto</div>'+
+    '<h1>Histórico de Casos</h1>'+
+  '</div>'+
+  '<div class="panel">'+
+    (state.history.length ? state.history.map(function(h){
+      return '<div class="history-item">'+
+        '<span class="code">#'+esc(h.code)+'</span> · '+esc(h.finishedAtStr)+'<br>'+
+        'Detetives: '+esc(h.players.join(', '))+'<br>'+
+        'Vencedor: <b>'+esc(h.winner)+'</b>'+
+        '<div class="solution">Solução: '+esc(h.solution.suspeito)+' · '+esc(h.solution.arma)+' · '+esc(h.solution.local)+'</div>'+
+      '</div>';
+    }).join('') : '<div class="empty">Nenhum caso arquivado ainda. Resolva um mistério para ele aparecer aqui.</div>')+
+  '</div>'+
+  '<div style="text-align:center;"><button onclick="__actions.goHome()">Voltar ao Início</button></div>';
+}
+
+function render(){
+  var app = document.getElementById('app');
+  var html = '';
+  if(state.screen==='home') html = renderHome();
+  else if(state.screen==='lobby') html = renderLobby();
+  else if(state.screen==='game') html = state.room ? renderGame() : '<div class="empty">Carregando caso...</div>';
+  else if(state.screen==='history') html = renderHistory();
+  app.innerHTML = html;
+}
+
+window.__actions = {
+  createRoom: createRoom,
+  joinRoom: joinRoom,
+  startGame: startGame,
+  goHome: goHome,
+  goHistory: goHistory,
+  passTurn: passTurn,
+  openSuggest: function(){ state.showSuggestModal=true; render(); },
+  openAccuse: function(){ state.showAccuseModal=true; render(); },
+  closeModals: function(){ state.showCardModal=null; state.showSuggestModal=false; state.showAccuseModal=false; render(); },
+  openShowCard: openShowCard,
+  showCardTo: showCardTo,
+  makeSuggestion: makeSuggestion,
+  makeAccusation: makeAccusation,
+  updatePick: function(stateKey, field, value){ state[stateKey][field] = value; }
+};
+
+render();
+})();
