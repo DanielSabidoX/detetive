@@ -47,6 +47,9 @@ service cloud.firestore {
     match /notes/{id} {
       allow read, write: if true;
     }
+    match /dice/{code} { 
+      allow read, write: if true; 
+    }
   }
 }
 ```
