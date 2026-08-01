@@ -109,6 +109,26 @@ function notifCol(){ return db.collection('notifications'); }
 function historyCol(){ return db.collection('history'); }
 function handKey(code,pid){ return code+'_'+pid; }
 
+// ===== Sessão local (isolada — permite voltar pro jogo após F5) =====
+var SESSION_KEY = 'casoArquivado_session_v1';
+function saveSession(code, pid, name){
+  try{
+    localStorage.setItem(SESSION_KEY, JSON.stringify({code:code, pid:pid, name:name}));
+  }catch(e){}
+}
+function loadSession(){
+  try{
+    var raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function clearSession(){
+  try{
+    localStorage.removeItem(SESSION_KEY);
+  }catch(e){}
+}
+// ===== fim sessão local =====
+
 // ===== Ficha de Anotações (isolada — não deve afetar mãos/sala/histórico) =====
 function notesCol(){ return db.collection('notes'); }
 function buildEmptyNotes(){
@@ -158,6 +178,7 @@ async function createRoom(){
   state.playerId = pid;
   state.hand = [];
   state.error = '';
+  saveSession(code, pid, name);
   attachListeners(code, pid);
   state.screen = 'lobby';
   render();
@@ -202,6 +223,7 @@ async function joinRoom(){
   state.playerId = pid;
   state.room = room;
   state.joinError = '';
+  saveSession(code, pid, name);
   attachListeners(code, pid);
   state.screen = 'lobby';
   render();
@@ -216,6 +238,7 @@ function attachListeners(code, pid){
     if(!snap.exists){
       if(state.screen==='lobby' || state.screen==='game'){
         detachListeners();
+        clearSession();
         state.screen = 'gone';
         state.goneReason = 'Esta sala não existe mais.';
         render();
@@ -225,6 +248,7 @@ function attachListeners(code, pid){
     var data = snap.data();
     if(data.phase==='cancelled'){
       detachListeners();
+      clearSession();
       state.screen = 'gone';
       state.goneReason = 'O anfitrião cancelou esta investigação.';
       render();
@@ -326,6 +350,7 @@ async function cancelRoom(){
     log: fv().arrayUnion({text:state.name+' cancelou a investigação.', type:'system', ts:nowTs()})
   });
   detachListeners();
+  clearSession();
   state.screen = 'home';
   state.room = null;
   state.code = '';
@@ -471,6 +496,7 @@ async function goHistory(){
 
 function goHome(){
   detachListeners();
+  clearSession();
   state.screen = 'home';
   state.room = null;
   state.code = '';
@@ -787,5 +813,45 @@ window.__actions = {
   updatePick: function(stateKey, field, value){ state[stateKey][field] = value; }
 };
 
-render();
+// Tenta reconectar automaticamente após um F5, se houver sessão salva.
+// Qualquer falha aqui cai de volta silenciosamente para a tela inicial normal.
+async function init(){
+  var session = loadSession();
+  if(!session || !session.code || !session.pid){
+    render();
+    return;
+  }
+  try{
+    var snap = await roomsCol().doc(session.code).get();
+    if(!snap.exists){
+      clearSession();
+      render();
+      return;
+    }
+    var room = snap.data();
+    if(room.phase==='cancelled'){
+      clearSession();
+      render();
+      return;
+    }
+    var stillIn = room.players.some(function(p){ return p.id===session.pid; });
+    if(!stillIn){
+      clearSession();
+      render();
+      return;
+    }
+    state.name = session.name;
+    state.code = session.code;
+    state.playerId = session.pid;
+    state.room = room;
+    attachListeners(session.code, session.pid);
+    state.screen = room.phase==='lobby' ? 'lobby' : 'game';
+    render();
+  }catch(e){
+    clearSession();
+    render();
+  }
+}
+
+init();
 })();
