@@ -137,23 +137,27 @@
   .badge.turnb{background:var(--ok);}
   .badge.host{background:var(--muted);}
 
-  .hand{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  .hand{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;align-items:flex-start;}
   .card{
-    width:120px;min-height:88px;
-    background:var(--paper);
+    width:120px;
+    height:180px;
+    background:linear-gradient(180deg, #2b241b 0%, #120f0a 100%);
     color:var(--paper-ink);
-    border-radius:6px;
-    padding:10px 10px 8px;
+    border-radius:12px;
+    padding:0;
     font-family:'Oswald',sans-serif;
     cursor:pointer;
     position:relative;
-    box-shadow:0 3px 0 rgba(0,0,0,.35);
+    box-shadow:0 6px 20px rgba(0,0,0,.35);
     transition:transform .12s ease;
-    border:1px solid #cbb98f;
+    border:1px solid rgba(255,255,255,.10);
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
   }
   .card:hover{transform:translateY(-3px);}
-  .card .cat{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#8a7c55;margin-bottom:6px;}
-  .card .name{font-size:14px;font-weight:600;line-height:1.25;}
+  .card-image{display:block;width:100%;height:100%;object-fit:cover;object-position:center;}
   .card.suspeito{border-left:4px solid var(--red-bright);}
   .card.arma{border-left:4px solid #4a5f7a;}
   .card.local{border-left:4px solid #5f7a4a;}

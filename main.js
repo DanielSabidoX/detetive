@@ -1,8 +1,38 @@
 (function(){
 
-var SUSPEITOS = ["Baronesa Ametista","Coronel Pimenta","Dr. Alcaçuz","Madame Corvo","Capitão Ferro","Srta. Marfim"];
-var ARMAS = ["Candelabro","Corda","Punhal","Chave Inglesa","Revólver","Cano de Chumbo"];
-var LOCAIS = ["Biblioteca","Salão de Baile","Cozinha","Escritório","Jardim de Inverno","Sala de Bilhar","Sala de Jantar","Vestíbulo","Terraço"];
+// var SUSPEITOS = ["Baronesa Ametista","Coronel Pimenta","Dr. Alcaçuz","Madame Corvo","Capitão Ferro","Srta. Marfim"];
+// var ARMAS = ["Candelabro","Corda","Punhal","Chave Inglesa","Revólver","Cano de Chumbo"];
+// var LOCAIS = ["Biblioteca","Salão de Baile","Cozinha","Escritório","Jardim de Inverno","Sala de Bilhar","Sala de Jantar","Vestíbulo","Terraço"];
+
+var SUSPEITOS = [
+    "Prof. Black",
+    "Srta. Rosa",
+    "Cel. Mostarda",
+    "Dona Branca",
+    "Sr. Marinho",
+    "Dona Violeta"
+];
+
+var ARMAS = [
+    "Revólver",
+    "Cano",
+    "Chave Inglesa",
+    "Faca",
+    "Candelabro",
+    "Corda"
+];
+
+var LOCAIS = [
+    "Hall",
+    "Sala de Estar",
+    "Salão de Festas",
+    "Cozinha",
+    "Biblioteca",
+    "Sala de Jantar",
+    "Escritório",
+    "Sala de Música",
+    "Salão de Jogos"
+];
 
 var state = {
   screen: 'home',
@@ -64,6 +94,9 @@ function cardCategory(name){
 }
 function cardLabel(cat){
   return cat==='suspeito' ? 'Suspeito' : cat==='arma' ? 'Arma' : 'Cômodo';
+}
+function cardImagePath(name){
+  return 'images/cards/' + slugify(name) + '.png';
 }
 
 function fv(){ return firebase.firestore.FieldValue; }
@@ -500,8 +533,7 @@ function renderGame(){
         (state.hand.length ? state.hand.map(function(c){
           var cat = cardCategory(c);
           return '<div class="card '+cat+'" onclick="__actions.openShowCard(\''+esc(c).replace(/'/g,"\\'")+'\')">'+
-            '<div class="cat">'+cardLabel(cat)+'</div>'+
-            '<div class="name">'+esc(c)+'</div>'+
+            '<img src="'+esc(cardImagePath(c))+'" alt="'+esc(c)+'" class="card-image">'+
           '</div>';
         }).join('') : '<div class="empty">Nenhuma carta.</div>')+
       '</div>'+
