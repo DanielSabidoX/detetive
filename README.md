@@ -50,6 +50,9 @@ service cloud.firestore {
     match /dice/{code} { 
       allow read, write: if true; 
     }
+    match /board_positions/{id} {
+      allow read, write: if true;
+    }    
   }
 }
 ```

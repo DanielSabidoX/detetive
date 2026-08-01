@@ -1,0 +1,157 @@
+/* ===== Tabuleiro Virtual — Caso Arquivado =====
+   Arquivo isolado, independente do main.js.
+   Uso: <link rel="stylesheet" href="tabuleiro/board.css"> */
+
+#tabuleiro-painel{
+  position: fixed;
+  top: 90px;
+  left: 24px;
+  z-index: 9998;
+  width: 380px;
+  max-width: calc(100vw - 30px);
+  box-sizing: border-box;
+  border: 1px solid rgba(228, 214, 186, 0.45);
+  border-radius: 14px;
+  background: rgba(20,16,12,.94);
+  box-shadow: 0 14px 34px rgba(0,0,0,.55);
+  backdrop-filter: blur(4px);
+  user-select: none;
+  font-family: 'Courier Prime', monospace;
+  color: var(--paper, #fff);
+}
+
+/* barra de arrastar o painel inteiro */
+#tabuleiro-painel .tab-handle{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;
+  cursor: grab;
+  border-bottom: 1px solid rgba(212,175,102,.25);
+}
+#tabuleiro-painel.dragging-panel .tab-handle{ cursor: grabbing; }
+#tabuleiro-painel .tab-handle h3{
+  margin:0;font-family:'Oswald',sans-serif;font-size:14px;
+  letter-spacing:.15em;text-transform:uppercase;color:var(--gold,#b8863b);
+}
+#tabuleiro-painel .tab-toggle{
+  background:none;border:1px solid var(--gold,#b8863b);color:var(--gold-bright,#d9a44f);
+  font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 10px;border-radius:3px;cursor:pointer;
+}
+#tabuleiro-painel .tab-toggle:hover{background:var(--gold,#b8863b);color:#1a1509;}
+
+#tabuleiro-painel .tab-body{
+  padding: 14px;
+}
+#tabuleiro-painel.collapsed .tab-body{ display:none; }
+
+#tabuleiro-painel .tab-status{
+  font-size: 10px;letter-spacing:.15em;text-transform:uppercase;
+  color: var(--muted,#a89a7d); margin-bottom: 10px; text-align:center;
+}
+#tabuleiro-painel .tab-status.on{ color: var(--ok,#5f8a52); }
+
+#tabuleiro-painel .tab-empty{
+  font-size:12px;color:var(--muted,#a89a7d);font-style:italic;text-align:center;padding:20px 6px;
+}
+
+/* ===== grade do tabuleiro ===== */
+.tab-board{
+  position: relative;
+  display: grid;
+  gap: 1px;
+  background: rgba(212,175,102,.12);
+  border: 2px solid var(--line,#3a3122);
+  border-radius: 6px;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.tab-cell{
+  background: #100d09;
+  border-radius: 2px;
+}
+.tab-cell.corridor{
+  background: #1a1610;
+}
+.tab-cell.corridor.drop-hover{
+  background: rgba(184,134,59,.35);
+}
+.tab-cell.corridor.door{
+  background: var(--door-color, var(--gold,#b8863b));
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.4);
+}
+.tab-cell.corridor.door.drop-hover{
+  box-shadow: inset 0 0 0 2px #fff;
+}
+
+.tab-room{
+  background: linear-gradient(150deg, var(--panel-2,#2a2318), #1c1710);
+  border: 1px solid var(--room-color, var(--gold,#b8863b));
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4px;
+  position: relative;
+  box-shadow: inset 0 0 22px -6px var(--room-color, transparent);
+}
+.tab-room.drop-hover{
+  border-color: var(--gold-bright,#d9a44f);
+  box-shadow: inset 0 0 0 2px var(--gold-bright,#d9a44f);
+}
+.tab-room-name{
+  font-family:'Oswald',sans-serif;
+  font-size: 9.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--gold-bright,#d9a44f);
+  line-height: 1.15;
+}
+
+/* ===== peões ===== */
+.tab-pawn{
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,.5);
+  box-shadow: 0 3px 6px rgba(0,0,0,.5);
+  cursor: grab;
+  transform: translate(-50%,-50%);
+  transition: box-shadow .12s ease;
+  z-index: 5;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Oswald',sans-serif;font-size:9px;font-weight:700;color:#fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,.8);
+}
+.tab-pawn:hover{ box-shadow: 0 0 0 3px rgba(217,164,79,.5), 0 3px 6px rgba(0,0,0,.5); }
+.tab-pawn.dragging{
+  cursor: grabbing;
+  z-index: 20;
+  box-shadow: 0 0 0 3px rgba(217,164,79,.8), 0 6px 14px rgba(0,0,0,.6);
+  transition: none;
+}
+
+.tab-legend{
+  display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;
+  border-top:1px solid rgba(212,175,102,.2);
+}
+.tab-legend-item{
+  display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted,#a89a7d);
+}
+.tab-legend-dot{
+  width:10px;height:10px;border-radius:50%;border:1px solid rgba(0,0,0,.5);flex-shrink:0;
+}
+.tab-legend-item.you{ color: var(--gold-bright,#d9a44f); }
+
+.tab-hint{
+  font-size: 10.5px;
+  color: var(--muted,#a89a7d);
+  text-align: center;
+  margin-top: 10px;
+}
+
+@media (max-width: 640px){
+  #tabuleiro-painel{ width: 300px; top: 70px; left: 10px; }
+}

@@ -178,6 +178,7 @@ async function createRoom(){
   state.playerId = pid;
   state.hand = [];
   state.error = '';
+  state.room = room;
   saveSession(code, pid, name);
   attachListeners(code, pid);
   state.screen = 'lobby';
@@ -785,7 +786,7 @@ function render(){
   var app = document.getElementById('app');
   var html = '';
   if(state.screen==='home') html = renderHome();
-  else if(state.screen==='lobby') html = renderLobby();
+  else if(state.screen==='lobby') html = state.room ? renderLobby() : '<div class="empty">Carregando caso...</div>';
   else if(state.screen==='game') html = state.room ? renderGame() : '<div class="empty">Carregando caso...</div>';
   else if(state.screen==='history') html = renderHistory();
   else if(state.screen==='gone') html = renderGone();
