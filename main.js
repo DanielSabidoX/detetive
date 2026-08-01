@@ -117,6 +117,11 @@ async function joinRoom(){
     var snap = await roomsCol().doc(code).get();
     if(!snap.exists){ state.joinError='Caso não encontrado. Confira o código.'; render(); return; }
     var room = snap.data();
+    if(room.phase==='cancelled'){
+      state.joinError='Esta sala foi cancelada pelo anfitrião. Peça para abrirem um novo caso.';
+      render();
+      return;
+    }
     var already = room.players.some(function(p){return p.id===pid;});
     if(!already){
       if(room.phase!=='lobby'){
@@ -128,6 +133,9 @@ async function joinRoom(){
         players: fv().arrayUnion({id:pid, name:name, eliminated:false}),
         log: fv().arrayUnion({text:name+' entrou no caso.', type:'system', ts:nowTs()})
       });
+      room = Object.assign({}, room, {
+        players: room.players.concat([{id:pid, name:name, eliminated:false}])
+      });
     }
   }catch(e){
     state.joinError = 'Não foi possível entrar na sala. Confira sua conexão e as credenciais do Firebase.';
@@ -137,8 +145,10 @@ async function joinRoom(){
   state.name = name;
   state.code = code;
   state.playerId = pid;
+  state.room = room;
   state.joinError = '';
   attachListeners(code, pid);
+  state.screen = 'lobby';
   render();
 }
 
@@ -148,8 +158,24 @@ function attachListeners(code, pid){
   if(unsubNotify) unsubNotify();
 
   unsubRoom = roomsCol().doc(code).onSnapshot(function(snap){
-    if(!snap.exists) return;
-    state.room = snap.data();
+    if(!snap.exists){
+      if(state.screen==='lobby' || state.screen==='game'){
+        detachListeners();
+        state.screen = 'gone';
+        state.goneReason = 'Esta sala não existe mais.';
+        render();
+      }
+      return;
+    }
+    var data = snap.data();
+    if(data.phase==='cancelled'){
+      detachListeners();
+      state.screen = 'gone';
+      state.goneReason = 'O anfitrião cancelou esta investigação.';
+      render();
+      return;
+    }
+    state.room = data;
     if(state.room.phase!=='lobby' && (state.screen==='lobby' || state.screen==='home')){
       state.screen = 'game';
     }
@@ -207,6 +233,21 @@ async function startGame(){
   });
   await batch.commit();
   state.screen = 'game';
+  render();
+}
+
+async function cancelRoom(){
+  var room = state.room;
+  if(!room || room.hostId!==state.playerId || room.phase!=='lobby') return;
+  await roomsCol().doc(room.code).update({
+    phase: 'cancelled',
+    log: fv().arrayUnion({text:state.name+' cancelou a investigação.', type:'system', ts:nowTs()})
+  });
+  detachListeners();
+  state.screen = 'home';
+  state.room = null;
+  state.code = '';
+  state.playerId = null;
   render();
 }
 
@@ -329,6 +370,7 @@ function goHome(){
   state.room = null;
   state.code = '';
   state.playerId = null;
+  state.goneReason = '';
   render();
 }
 
@@ -401,13 +443,14 @@ function renderLobby(){
       }).join('')+
     '</div>'+
     (isHost ? (
-      '<div style="margin-top:16px;">'+
+      '<div class="row" style="margin-top:16px;">'+
         (canStart ?
           '<button class="primary" onclick="__actions.startGame()">Iniciar Investigação</button>' :
           '<button disabled>Iniciar Investigação (mín. 3 detetives)</button>'
         )+
+        '<button class="danger" onclick="__actions.cancelRoom()">Cancelar Sala</button>'+
       '</div>'
-    ) : '<p class="hint" style="margin-top:14px;">Aguardando o anfitrião iniciar a investigação...</p>')+
+    ) : '<p class="hint" style="margin-top:14px;">Aguardando o anfitrião iniciar a investigação. Assim que a partida começar, suas cartas aparecem aqui automaticamente.</p>')+
   '</div>';
 }
 
@@ -550,6 +593,19 @@ function selectField(stateKey, field, label, options){
   '</div>';
 }
 
+function renderGone(){
+  return ''+
+  '<div class="masthead">'+
+    '<div class="kicker">Aviso</div>'+
+    '<h1>Caso Arquivado</h1>'+
+  '</div>'+
+  '<div class="final-banner">'+
+    '<h2>Investigação Encerrada</h2>'+
+    '<p class="solution-line">'+esc(state.goneReason||'Esta sala não está mais disponível.')+'</p>'+
+    '<div style="margin-top:14px;"><button class="primary" onclick="__actions.goHome()">Voltar ao Início</button></div>'+
+  '</div>';
+}
+
 function renderHistory(){
   return ''+
   '<div class="masthead">'+
@@ -576,6 +632,7 @@ function render(){
   else if(state.screen==='lobby') html = renderLobby();
   else if(state.screen==='game') html = state.room ? renderGame() : '<div class="empty">Carregando caso...</div>';
   else if(state.screen==='history') html = renderHistory();
+  else if(state.screen==='gone') html = renderGone();
   app.innerHTML = html;
 }
 
@@ -583,6 +640,7 @@ window.__actions = {
   createRoom: createRoom,
   joinRoom: joinRoom,
   startGame: startGame,
+  cancelRoom: cancelRoom,
   goHome: goHome,
   goHistory: goHistory,
   passTurn: passTurn,
