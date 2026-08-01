@@ -8,18 +8,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="dice_v2.css">
+<link rel="stylesheet" href="dice_float.css">
 </head>
 <body>
 <div class="wrap" id="app"></div>
 
-<div class="dice-box" id="dado"></div>
+<div id="dado"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="main.js"></script>
 <script src="dice_v3.js"></script>
-<script>mountDice('#dado');</script>
+<script src="dice_drag.js"></script>
+<script>
+  mountDice('#dado');
+  makeDiceDraggable('#dado');
+</script>
 
 </body>
 </html>
