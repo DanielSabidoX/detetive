@@ -1,0 +1,153 @@
+/* ===== Painel de Solução do Caso — Caso Arquivado =====
+   Arquivo isolado, independente do main.js.
+   Uso: <link rel="stylesheet" href="solucao.css"> */
+
+#solucao-painel{
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9997;
+  width: 340px;
+  max-width: calc(100vw - 20px);
+  box-sizing: border-box;
+  border: 1px solid rgba(212,175,102,.45);
+  border-radius: 14px;
+  background: rgba(20,16,12,.94);
+  box-shadow: 0 14px 34px rgba(0,0,0,.55);
+  backdrop-filter: blur(4px);
+  user-select: none;
+  font-family: 'Courier Prime', monospace;
+  color: var(--paper, #ece0c4);
+}
+
+#solucao-painel .sol-handle{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;
+  cursor: grab;
+  border-bottom: 1px solid rgba(212,175,102,.25);
+}
+#solucao-painel.dragging-panel .sol-handle{ cursor: grabbing; }
+#solucao-painel .sol-handle h3{
+  margin:0;font-family:'Oswald',sans-serif;font-size:14px;
+  letter-spacing:.15em;text-transform:uppercase;color:var(--gold,#b8863b);
+}
+#solucao-painel .sol-toggle{
+  background:none;border:1px solid var(--gold,#b8863b);color:var(--gold-bright,#d9a44f);
+  font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 10px;border-radius:3px;cursor:pointer;
+}
+#solucao-painel .sol-toggle:hover{background:var(--gold,#b8863b);color:#1a1509;}
+
+#solucao-painel .sol-body{ padding: 16px; }
+#solucao-painel.collapsed .sol-body{ display:none; }
+
+#solucao-painel .sol-status{
+  font-size: 10px;letter-spacing:.15em;text-transform:uppercase;
+  color: var(--muted,#a89a7d); margin-bottom: 12px; text-align:center;
+}
+#solucao-painel .sol-status.on{ color: var(--ok,#5f8a52); }
+#solucao-painel .sol-status.revealed{ color: var(--red-bright,#b5433a); }
+
+#solucao-painel .sol-empty{
+  font-size:12px;color:var(--muted,#a89a7d);font-style:italic;text-align:center;padding:16px 6px;
+}
+
+/* ===== cartas ===== */
+.sol-cards{
+  display:flex;gap:10px;justify-content:center;perspective:900px;
+  margin-bottom: 14px;
+}
+.sol-card{
+  width: 88px;
+  height: 128px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform .7s cubic-bezier(.2,.9,.25,1);
+}
+.sol-card.flipped{ transform: rotateY(180deg); }
+
+.sol-face{
+  position:absolute; inset:0;
+  border-radius: 8px;
+  backface-visibility: hidden;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding: 8px 6px;
+  text-align:center;
+  box-shadow: 0 4px 10px rgba(0,0,0,.4);
+}
+
+.sol-back{
+  background:
+    repeating-linear-gradient(45deg, rgba(212,175,102,.05) 0 6px, transparent 6px 12px),
+    linear-gradient(150deg, #2a2318, #16130d);
+  border: 1px solid var(--gold, #b8863b);
+}
+.sol-back .sol-lock{ font-size: 20px; margin-bottom: 8px; opacity:.8; }
+.sol-back .sol-confidencial{
+  font-family:'Oswald',sans-serif; font-size: 10px; font-weight:700;
+  letter-spacing:.15em; text-transform:uppercase;
+  color: var(--red-bright,#b5433a);
+  border: 1px solid var(--red-bright,#b5433a);
+  padding: 3px 6px; border-radius: 3px;
+  transform: rotate(-8deg);
+}
+
+.sol-front{
+  background: #100d09;
+  border: 1px solid var(--gold,#b8863b);
+  transform: rotateY(180deg);
+  color: var(--paper-ink,#2b2013);
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.sol-card-image{
+  display:block; width:100%; flex:1; min-height:0;
+  object-fit: cover; object-position: center;
+}
+.sol-card-caption{
+  flex-shrink:0;
+  background: var(--paper,#ece0c4);
+  padding: 4px 4px 5px;
+  text-align:center;
+}
+.sol-front .sol-cat{
+  display:block;
+  font-family:'Oswald',sans-serif; font-size: 8px; letter-spacing:.1em;
+  text-transform:uppercase; color:#8a7c55; margin:0;
+}
+.sol-card.suspeito .sol-front{ border-left: 4px solid var(--red-bright,#b5433a); }
+.sol-card.arma .sol-front{ border-left: 4px solid #4a5f7a; }
+.sol-card.local .sol-front{ border-left: 4px solid #5f7a4a; }
+
+.sol-reveal-btn{
+  display:block; width:100%;
+  font-family:'Oswald',sans-serif; font-weight:600; letter-spacing:.06em;
+  text-transform:uppercase; font-size:13px;
+  background: var(--red,#8a2a2a); color: var(--paper,#ece0c4);
+  border: 1px solid var(--red-bright,#b5433a);
+  padding: 10px 18px; border-radius:3px; cursor:pointer;
+  transition: background .15s ease, transform .1s ease;
+}
+.sol-reveal-btn:hover{ background: var(--red-bright,#b5433a); }
+.sol-reveal-btn:active{ transform: translateY(1px); }
+.sol-reveal-btn[disabled]{ opacity:.4; cursor:not-allowed; }
+
+.sol-hint{
+  font-size: 10.5px;
+  color: var(--muted,#a89a7d);
+  text-align: center;
+  margin-top: 10px;
+}
+.sol-revealed-by{
+  font-size: 11px;
+  color: var(--gold-bright,#d9a44f);
+  text-align: center;
+  margin-top: 10px;
+}
+
+@media (max-width: 640px){
+  #solucao-painel{ width: 280px; bottom: 10px; right: 10px; }
+  .sol-card{ width: 74px; height: 108px; }
+}

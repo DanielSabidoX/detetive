@@ -53,6 +53,9 @@ service cloud.firestore {
     match /board_positions/{id} {
       allow read, write: if true;
     }    
+    match /solution_reveal/{id} {
+      allow read, write: if true;
+    }    
   }
 }
 ```

@@ -10,12 +10,14 @@
 <link rel="stylesheet" href="dice_v2.css">
 <link rel="stylesheet" href="dice_float.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="solucao.css">
 </head>
 <body>
 <div class="wrap" id="app"></div>
 
 <div id="dado"></div>
 <div id="tabuleiro-painel"></div>
+<div id="solucao-painel"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -24,10 +26,12 @@
 <script src="dice_v3.js"></script>
 <script src="dice_drag.js"></script>
 <script src="board.js"></script>
+<script src="solucao.js"></script>
 <script>
   mountDice('#dado');
   makeDiceDraggable('#dado');
   mountBoard('#tabuleiro-painel');
+  mountSolution('#solucao-painel');
 </script>
 
 </body>
