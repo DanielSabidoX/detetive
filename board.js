@@ -20,24 +20,26 @@
     ['Biblioteca','Escritório','Sala de Jantar'],
     ['Salão de Jogos','Sala de Música','Cozinha']
   ];
-  var BLOCK = 3;   // cada sala ocupa um bloco 3x3 de células
-  var GAP = 1;     // corredor de 1 célula entre blocos
+  var BLOCK = 4;   // cada sala ocupa um bloco 4x4 de células
+  var GAP = 2;     // corredor de 2 células entre blocos de sala
   var BORDER = 1;  // margem externa de 1 célula
-  var SIZE = BORDER*2 + BLOCK*3 + GAP*2; // = 13
+  var SIZE = BORDER*2 + BLOCK*3 + GAP*2; // = 18
+  var CENTER_OFFSET = Math.floor(BLOCK/2); // célula usada como "âncora" central da sala
 
   var PAWN_COLORS = ['#b5433a','#4a86b8','#5f9c4a','#c98a3c','#9c5cb8','#3ca6a0'];
 
-  // cor temática de cada sala (usada na sala e no quadradinho da porta)
+  // cor temática de cada sala — os valores de verdade ficam em board.css (variáveis CSS),
+  // aqui só apontamos qual variável cada sala usa.
   var ROOM_COLORS = {
-    'Hall':            '#b5433a',
-    'Sala de Estar':   '#c9457e',
-    'Salão de Festas': '#8a5a2e',
-    'Biblioteca':      '#7a2320',
-    'Escritório':      '#c9762e',
-    'Sala de Jantar':  '#5f9cc9',
-    'Salão de Jogos':  '#4a9c52',
-    'Sala de Música':  '#9c8fd9',
-    'Cozinha':         '#d9a86a'
+    'Hall':            'var(--cor-hall)',
+    'Sala de Estar':   'var(--cor-sala-estar)',
+    'Salão de Festas': 'var(--cor-salao-festas)',
+    'Biblioteca':      'var(--cor-biblioteca)',
+    'Escritório':      'var(--cor-escritorio)',
+    'Sala de Jantar':  'var(--cor-sala-jantar)',
+    'Salão de Jogos':  'var(--cor-salao-jogos)',
+    'Sala de Música':  'var(--cor-sala-musica)',
+    'Cozinha':         'var(--cor-cozinha)'
   };
 
   function roomStartRow(rIdx){ return BORDER + rIdx*(BLOCK+GAP) + 1; }
@@ -66,7 +68,7 @@
 
         rooms.push({
           name:name, r0:r0, c0:c0,
-          anchorRow: r0+1, anchorCol: c0+1,
+          anchorRow: r0+CENTER_OFFSET, anchorCol: c0+CENTER_OFFSET,
           color: color,
           doors: [doorSouth, doorSide]
         });
@@ -189,6 +191,7 @@
     var players = [];       // [{id,name,eliminated}]
     var pawns = {};         // playerId -> {row,col}
     var cellPx = 26;        // recalculado a cada render
+    var GAP_PX = 1;         // precisa bater com o "gap" definido em .tab-board no CSS
     var draggingPawnId = null;
     var boardEl = null;
 
@@ -213,14 +216,15 @@
       boardWrap.innerHTML = '<div class="tab-board" id="tab-board-el"></div>';
       boardEl = boardWrap.querySelector('#tab-board-el');
 
-      // tamanho de célula responsivo ao container
+      // tamanho de célula responsivo ao container (descontando o espaço do "gap" entre células)
       var wrapWidth = boardWrap.clientWidth || 340;
-      cellPx = Math.max(14, Math.floor(wrapWidth / SIZE));
+      var totalGap = (SIZE-1) * GAP_PX;
+      cellPx = Math.max(14, Math.floor((wrapWidth - totalGap) / SIZE));
 
       boardEl.style.gridTemplateColumns = 'repeat('+SIZE+', '+cellPx+'px)';
       boardEl.style.gridTemplateRows = 'repeat('+SIZE+', '+cellPx+'px)';
-      boardEl.style.width = (cellPx*SIZE)+'px';
-      boardEl.style.height = (cellPx*SIZE)+'px';
+      boardEl.style.width = (cellPx*SIZE + totalGap)+'px';
+      boardEl.style.height = (cellPx*SIZE + totalGap)+'px';
 
       var frag = document.createDocumentFragment();
       var renderedRoom = {}; // evita desenhar a mesma sala 9x (uma vez por bloco)
@@ -238,7 +242,7 @@
             div.style.gridRow = room.r0 + ' / span ' + BLOCK;
             div.style.gridColumn = room.c0 + ' / span ' + BLOCK;
             div.style.setProperty('--room-color', room.color);
-            div.innerHTML = '<span class="tab-room-name" style="color:'+room.color+'">'+escHtml(room.name)+'</span>';
+            div.innerHTML = '<span class="tab-room-name">'+escHtml(room.name)+'</span>';
             frag.appendChild(div);
           } else {
             var cell = document.createElement('div');
@@ -264,8 +268,18 @@
       });
     }
 
+    // posição em pixels do CENTRO de uma célula (row/col 1-indexados), considerando o gap
     function cellCenterPx(row, col){
-      return { x: (col-0.5)*cellPx, y: (row-0.5)*cellPx };
+      var step = cellPx + GAP_PX;
+      return { x: (col-1)*step + cellPx/2, y: (row-1)*step + cellPx/2 };
+    }
+    // caminho inverso: de um pixel (x,y) pra qual célula (row/col) ele corresponde
+    function pxToCell(x, y){
+      var step = cellPx + GAP_PX;
+      return {
+        col: Math.floor(x/step) + 1,
+        row: Math.floor(y/step) + 1
+      };
     }
 
     function renderLegend(){
@@ -341,8 +355,8 @@
         el.style.left = x+'px';
         el.style.top  = y+'px';
 
-        var col = Math.round(x/cellPx + 0.5);
-        var row = Math.round(y/cellPx + 0.5);
+        var cellIdx = pxToCell(x, y);
+        var col = cellIdx.col, row = cellIdx.row;
         clearDropHighlights();
         var target = boardEl.querySelector('[data-row="'+row+'"][data-col="'+col+'"]');
         if(target){ target.classList.add('drop-hover'); }
@@ -365,9 +379,8 @@
         var boardRect = boardEl.getBoundingClientRect();
         var x = parseFloat(el.style.left) || 0;
         var y = parseFloat(el.style.top) || 0;
-        var col = x/cellPx + 0.5;
-        var row = y/cellPx + 0.5;
-        var snapped = snapCell(row, col);
+        var cellIdx = pxToCell(x, y);
+        var snapped = snapCell(cellIdx.row, cellIdx.col);
 
         pawns[pid] = {row:snapped.row, col:snapped.col};
         renderPawns();

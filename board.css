@@ -3,21 +3,33 @@
    Uso: <link rel="stylesheet" href="tabuleiro/board.css"> */
 
 #tabuleiro-painel{
+  /* ===== CORES DAS SALAS — ajuste livremente aqui ===== */
+  --cor-hall:            #dc475d; 
+  --cor-sala-estar:      #0d4b82; 
+  --cor-salao-festas:    #b8b782; 
+  --cor-biblioteca:      #C1EC45; 
+  --cor-escritorio:      #E2AA44; 
+  --cor-sala-jantar:     #2C4A6E; 
+  --cor-salao-jogos:     #5A7A4A; 
+  --cor-sala-musica:     #008AFF; 
+  --cor-cozinha:         #9da6a8; 
+  /* ===== fim das cores das salas ===== */
+
   position: fixed;
   top: 90px;
   left: 24px;
   z-index: 9998;
   width: 380px;
-  max-width: calc(100vw - 30px);
+  max-width: calc(100vw - 20px);
   box-sizing: border-box;
-  border: 1px solid rgba(228, 214, 186, 0.45);
+  border: 1px solid rgba(212,175,102,.45);
   border-radius: 14px;
   background: rgba(20,16,12,.94);
   box-shadow: 0 14px 34px rgba(0,0,0,.55);
   backdrop-filter: blur(4px);
   user-select: none;
   font-family: 'Courier Prime', monospace;
-  color: var(--paper, #fff);
+  color: var(--paper, #ece0c4);
 }
 
 /* barra de arrastar o painel inteiro */
@@ -59,7 +71,7 @@
   position: relative;
   display: grid;
   gap: 1px;
-  background: rgba(212,175,102,.12);
+  background: #000;
   border: 2px solid var(--line,#3a3122);
   border-radius: 6px;
   margin: 0 auto;
@@ -71,7 +83,7 @@
   border-radius: 2px;
 }
 .tab-cell.corridor{
-  background: #1a1610;
+  background: #fff;
 }
 .tab-cell.corridor.drop-hover{
   background: rgba(184,134,59,.35);
@@ -85,7 +97,7 @@
 }
 
 .tab-room{
-  background: linear-gradient(150deg, var(--panel-2,#2a2318), #1c1710);
+  background: var(--room-color);
   border: 1px solid var(--room-color, var(--gold,#b8863b));
   border-radius: 6px;
   display: flex;
@@ -103,9 +115,10 @@
 .tab-room-name{
   font-family:'Oswald',sans-serif;
   font-size: 9.5px;
+  font-weight: bolder;
   letter-spacing: .04em;
   text-transform: uppercase;
-  color: var(--gold-bright,#d9a44f);
+  color: #000;
   line-height: 1.15;
 }
 
