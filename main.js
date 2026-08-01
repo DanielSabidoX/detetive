@@ -514,7 +514,7 @@ function renderHome(){
   return ''+
   '<div class="masthead">'+
     '<div class="kicker">Dossiê Confidencial · Jogo de Dedução</div>'+
-    '<h1>Caso Arquivado</h1>'+
+    '<h1>DETETIVE</h1>'+
     '<div class="sub">Companion digital para o seu jogo de detetive com tabuleiro físico</div>'+
   '</div>'+
   '<div class="panel">'+
@@ -556,7 +556,7 @@ function renderLobby(){
   return ''+
   '<div class="masthead">'+
     '<div class="kicker">Sala de Espera</div>'+
-    '<h1>Caso Arquivado</h1>'+
+    '<h1>DETETIVE</h1>'+
   '</div>'+
   '<div class="panel">'+
     '<div class="section-title"><h2>Código do Caso</h2><button class="small" onclick="__actions.goHome()">Sair</button></div>'+
@@ -594,7 +594,7 @@ function renderGame(){
 
   var html = '<div class="masthead">'+
     '<div class="kicker">Caso #'+esc(room.code)+'</div>'+
-    '<h1>Caso Arquivado</h1>'+
+    '<h1>DETETIVE</h1>'+
     (ended ? '' : '<div class="sub">'+(myTurn ? 'É a sua vez de agir, detetive.' : 'Vez de: '+esc(currentTurnName()))+'</div>')+
   '</div>';
 
@@ -641,7 +641,6 @@ function renderGame(){
 
     html += '<div class="panel notes-panel">'+
       '<div class="section-title"><h2>Ficha de Anotações</h2></div>'+
-      '<img src="images/anotacoes/anotacoes.png" alt="Ficha de anotações" class="notes-banner">'+
       '<p class="hint">Clique em um item para alternar: em branco → descartado (✕) → suspeito (?) → em branco.</p>'+
       '<div class="notes-grid">'+
         notesColumn('suspeito','Suspeitos',SUSPEITOS)+
@@ -754,7 +753,7 @@ function renderGone(){
   return ''+
   '<div class="masthead">'+
     '<div class="kicker">Aviso</div>'+
-    '<h1>Caso Arquivado</h1>'+
+    '<h1>DETETIVE</h1>'+
   '</div>'+
   '<div class="final-banner">'+
     '<h2>Investigação Encerrada</h2>'+
