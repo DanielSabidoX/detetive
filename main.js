@@ -42,6 +42,7 @@ var state = {
   room: null,
   hand: [],
   notifications: [],
+  notes: buildEmptyNotes(),
   error: '',
   joinError: '',
   showCardModal: null,
@@ -55,6 +56,7 @@ var state = {
 var unsubRoom = null;
 var unsubHand = null;
 var unsubNotify = null;
+var unsubNotes = null;
 
 function esc(s){
   return String(s).replace(/[&<>"']/g, function(c){
@@ -106,6 +108,26 @@ function handsCol(){ return db.collection('hands'); }
 function notifCol(){ return db.collection('notifications'); }
 function historyCol(){ return db.collection('history'); }
 function handKey(code,pid){ return code+'_'+pid; }
+
+// ===== Ficha de Anotações (isolada — não deve afetar mãos/sala/histórico) =====
+function notesCol(){ return db.collection('notes'); }
+function buildEmptyNotes(){
+  var n = {suspeito:{}, arma:{}, local:{}};
+  SUSPEITOS.forEach(function(s){ n.suspeito[s]=''; });
+  ARMAS.forEach(function(a){ n.arma[a]=''; });
+  LOCAIS.forEach(function(l){ n.local[l]=''; });
+  return n;
+}
+function noteMarkSymbol(status){
+  return status==='x' ? '✕' : status==='?' ? '?' : '○';
+}
+function noteMarkClass(status){
+  return status==='x' ? 'mark-x' : status==='?' ? 'mark-q' : 'mark-blank';
+}
+function nextNoteStatus(status){
+  return status==='' ? 'x' : status==='x' ? '?' : '';
+}
+// ===== fim helpers de anotações =====
 
 async function createRoom(){
   var name = document.getElementById('name-input').value.trim();
@@ -224,12 +246,21 @@ function attachListeners(code, pid){
     state.notifications = snap.exists ? (snap.data().items || []) : [];
     render();
   });
+
+  // Listener isolado da ficha de anotações — falha aqui nunca deve afetar o resto do jogo
+  unsubNotes = notesCol().doc(handKey(code,pid)).onSnapshot(function(snap){
+    state.notes = (snap.exists && snap.data().data) ? snap.data().data : buildEmptyNotes();
+    render();
+  }, function(err){
+    state.notes = buildEmptyNotes();
+  });
 }
 
 function detachListeners(){
   if(unsubRoom){ unsubRoom(); unsubRoom=null; }
   if(unsubHand){ unsubHand(); unsubHand=null; }
   if(unsubNotify){ unsubNotify(); unsubNotify=null; }
+  if(unsubNotes){ unsubNotes(); unsubNotes=null; }
 }
 
 async function startGame(){
@@ -265,6 +296,24 @@ async function startGame(){
     log: fv().arrayUnion({text:'A investigação começou! '+players.length+' detetives receberam suas cartas.', type:'system', ts:nowTs()})
   });
   await batch.commit();
+
+  // Inicialização isolada da ficha de anotações — em operação separada do batch principal,
+  // e protegida por try/catch, para que uma eventual falha aqui (ex: regra de segurança
+  // faltando para a coleção "notes") jamais impeça o jogo de começar.
+  try{
+    var notesWrites = Object.keys(hands).map(function(pid){
+      var notes = buildEmptyNotes();
+      hands[pid].forEach(function(c){
+        var cat = cardCategory(c);
+        notes[cat][c] = 'x';
+      });
+      return notesCol().doc(handKey(room.code,pid)).set({data:notes});
+    });
+    await Promise.all(notesWrites);
+  }catch(e){
+    console.warn('Ficha de anotações não pôde ser inicializada (o jogo continua normalmente):', e);
+  }
+
   state.screen = 'game';
   render();
 }
@@ -385,6 +434,29 @@ async function makeAccusation(){
   render();
 }
 
+// Ações da ficha de anotações — isoladas, nunca lançam erro pro resto do app
+async function toggleNote(cat, item){
+  var next = nextNoteStatus((state.notes[cat] && state.notes[cat][item]) || '');
+  state.notes[cat][item] = next;
+  render();
+  try{
+    await notesCol().doc(handKey(state.code,state.playerId)).set({data: state.notes});
+  }catch(e){
+    console.warn('Não foi possível salvar a ficha de anotações:', e);
+  }
+}
+
+async function markFromNotification(card){
+  var cat = cardCategory(card);
+  state.notes[cat][card] = 'x';
+  render();
+  try{
+    await notesCol().doc(handKey(state.code,state.playerId)).set({data: state.notes});
+  }catch(e){
+    console.warn('Não foi possível salvar a ficha de anotações:', e);
+  }
+}
+
 async function goHistory(){
   state.screen = 'history';
   render();
@@ -404,6 +476,7 @@ function goHome(){
   state.code = '';
   state.playerId = null;
   state.goneReason = '';
+  state.notes = buildEmptyNotes();
   render();
 }
 
@@ -540,6 +613,17 @@ function renderGame(){
       '<p class="hint">Clique em uma carta para mostrá-la em segredo a um jogador específico.</p>'+
     '</div>';
 
+    html += '<div class="panel notes-panel">'+
+      '<div class="section-title"><h2>Ficha de Anotações</h2></div>'+
+      '<img src="images/anotacoes/anotacoes.png" alt="Ficha de anotações" class="notes-banner">'+
+      '<p class="hint">Clique em um item para alternar: em branco → descartado (✕) → suspeito (?) → em branco.</p>'+
+      '<div class="notes-grid">'+
+        notesColumn('suspeito','Suspeitos',SUSPEITOS)+
+        notesColumn('arma','Armas',ARMAS)+
+        notesColumn('local','Cômodos',LOCAIS)+
+      '</div>'+
+    '</div>';
+
     html += '<div class="panel">'+
       '<div class="section-title"><h2>Ações</h2></div>'+
       '<div class="row">'+
@@ -554,7 +638,9 @@ function renderGame(){
         '<div class="section-title"><h2>Cartas que te mostraram</h2></div>'+
         '<div class="notify">'+
           state.notifications.slice().reverse().map(function(n){
-            return '<div class="notify-item"><b>'+esc(n.from)+'</b> te mostrou: <b>'+esc(n.card)+'</b> <span style="color:var(--muted);">('+esc(n.ts)+')</span></div>';
+            return '<div class="notify-item"><b>'+esc(n.from)+'</b> te mostrou: <b>'+esc(n.card)+'</b> <span style="color:var(--muted);">('+esc(n.ts)+')</span> '+
+              '<button class="small" style="margin-left:8px;" onclick="__actions.markFromNotification(\''+esc(n.card).replace(/'/g,"\\'")+'\')">Marcar na ficha</button>'+
+            '</div>';
           }).join('')+
         '</div>'+
       '</div>';
@@ -610,6 +696,19 @@ function renderGame(){
   }
 
   return html;
+}
+
+function notesColumn(cat, label, items){
+  return '<div class="notes-col">'+
+    '<div class="notes-col-title">'+esc(label)+'</div>'+
+    items.map(function(item){
+      var status = (state.notes[cat] && state.notes[cat][item]) || '';
+      return '<div class="notes-item" onclick="__actions.toggleNote(\''+cat+'\',\''+esc(item).replace(/'/g,"\\'")+'\')">'+
+        '<span class="notes-mark '+noteMarkClass(status)+'">'+noteMarkSymbol(status)+'</span>'+
+        '<span class="notes-item-name">'+esc(item)+'</span>'+
+      '</div>';
+    }).join('')+
+  '</div>';
 }
 
 function selectField(stateKey, field, label, options){
@@ -681,6 +780,8 @@ window.__actions = {
   closeModals: function(){ state.showCardModal=null; state.showSuggestModal=false; state.showAccuseModal=false; render(); },
   openShowCard: openShowCard,
   showCardTo: showCardTo,
+  toggleNote: toggleNote,
+  markFromNotification: markFromNotification,
   makeSuggestion: makeSuggestion,
   makeAccusation: makeAccusation,
   updatePick: function(stateKey, field, value){ state[stateKey][field] = value; }

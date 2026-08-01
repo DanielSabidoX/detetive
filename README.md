@@ -44,6 +44,9 @@ service cloud.firestore {
     match /history/{id} {
       allow read, write: if true;
     }
+    match /notes/{id} {
+      allow read, write: if true;
+    }
   }
 }
 ```
