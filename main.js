@@ -495,6 +495,37 @@ async function goHistory(){
   render();
 }
 
+async function leaveGame(){
+  var room = state.room;
+  var me = room && room.players.filter(function(p){return p.id===state.playerId;})[0];
+
+  if(room && room.phase==='playing' && me && !me.eliminated){
+    var cardsText = state.hand.length ? state.hand.join(', ') : 'nenhuma carta';
+    try{
+      await db.runTransaction(async function(tx){
+        var ref = roomsCol().doc(room.code);
+        var snap = await tx.get(ref);
+        var data = snap.data();
+        var players = data.players.map(function(p){
+          if(p.id===state.playerId){ p.eliminated = true; }
+          return p;
+        });
+        tx.update(ref, {
+          players: players,
+          log: fv().arrayUnion({
+            text: '🚪 '+state.name+' saiu da partida e foi eliminado. Cartas reveladas: '+cardsText+'.',
+            type: 'normal', ts: nowTs()
+          })
+        });
+      });
+    }catch(e){
+      console.warn('Não foi possível registrar a saída do jogador:', e);
+    }
+  }
+
+  goHome();
+}
+
 function goHome(){
   detachListeners();
   clearSession();
@@ -610,7 +641,7 @@ function renderGame(){
   }
 
   html += '<div class="panel">'+
-    '<div class="section-title"><h2>Detetives</h2>'+(!ended?'<button class="small" onclick="__actions.goHome()">Sair</button>':'')+'</div>'+
+    '<div class="section-title"><h2>Detetives</h2>'+(!ended?'<button class="small" onclick="__actions.leaveGame()">Sair</button>':'')+'</div>'+
     '<div class="players-list">'+
       room.players.map(function(p){
         var cls = 'player-row';
@@ -799,6 +830,7 @@ window.__actions = {
   startGame: startGame,
   cancelRoom: cancelRoom,
   goHome: goHome,
+  leaveGame: leaveGame,
   goHistory: goHistory,
   passTurn: passTurn,
   openSuggest: function(){ state.showSuggestModal=true; render(); },
