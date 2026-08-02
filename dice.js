@@ -33,23 +33,41 @@
     if(!el) return;
 
     el.innerHTML =
-      '<h3>Dado</h3>' +
-      '<p class="dice-hint">Clique no dado para rolar</p>' +
-      '<div class="dice-stage"><div class="dice">' +
-        faceHTML(1,'f1')+faceHTML(2,'f2')+faceHTML(3,'f3')+
-        faceHTML(4,'f4')+faceHTML(5,'f5')+faceHTML(6,'f6') +
-      '</div></div>' +
-      '<div class="dice-result">Aguardando...</div>' +
-      '<div class="dice-by"></div>' +
-      '<button type="button" class="dice-btn">Rolar dado</button>' +
-      '<div><span class="dice-sync">Dado local</span></div>';
+      '<div class="dice-handle">'+
+        '<h3>Dado</h3>'+
+        '<button type="button" class="dice-toggle">_</button>'+
+      '</div>'+
+      '<div class="dice-body">'+
+        '<p class="dice-hint">Clique no dado para rolar</p>' +
+        '<div class="dice-stage"><div class="dice">' +
+          faceHTML(1,'f1')+faceHTML(2,'f2')+faceHTML(3,'f3')+
+          faceHTML(4,'f4')+faceHTML(5,'f5')+faceHTML(6,'f6') +
+        '</div></div>' +
+        '<div class="dice-result">Aguardando...</div>' +
+        '<div class="dice-by"></div>' +
+        '<button type="button" class="dice-btn">Rolar dado</button>' +
+        '<div><span class="dice-sync">Dado local</span></div>'+
+      '</div>';
 
+    var handle    = el.querySelector('.dice-handle');
+    var toggleBtn = el.querySelector('.dice-toggle');
     var stage  = el.querySelector('.dice-stage');
     var dice   = el.querySelector('.dice');
     var result = el.querySelector('.dice-result');
     var byEl   = el.querySelector('.dice-by');
     var btn    = el.querySelector('.dice-btn');
     var syncEl = el.querySelector('.dice-sync');
+
+    // ---------- minimizar/expandir (preferência salva só neste navegador) ----------
+    var COLLAPSED_KEY = 'casoArquivado_dado_collapsed_v1';
+    try{
+      if(localStorage.getItem(COLLAPSED_KEY) === '1') el.classList.add('collapsed');
+    }catch(e){}
+    toggleBtn.addEventListener('click', function(evt){
+      evt.stopPropagation();
+      el.classList.toggle('collapsed');
+      try{ localStorage.setItem(COLLAPSED_KEY, el.classList.contains('collapsed') ? '1' : '0'); }catch(e){}
+    });
 
     var rolling = false, spins = 0;
     var lastRollId = null;
@@ -85,8 +103,8 @@
           rolling = false;
           btn.disabled = false;
           if(typeof window.onDiceRoll === 'function') window.onDiceRoll(value, byName);
-        }, 1400);
-      }, 700);
+        }, 500);
+      }, 3000);
     }
 
     function roll(){

@@ -1,6 +1,6 @@
 /* ===== Dado flutuante (canto superior direito) + arrastavel =====
-   Adicione DEPOIS do dice_v2.css:
-   <link rel="stylesheet" href="dado/dice_float.css">
+   Adicione DEPOIS do dice.css:
+   <link rel="stylesheet" href="dice_float.css">
    O elemento onde voce chama mountDice('#dado') deve receber id="dado". */
 
 #dado{
@@ -9,7 +9,7 @@
   right: 24px;
   z-index: 9999;
   width: 220px;
-  padding: 14px 14px 16px;
+  padding: 0;
   box-sizing: border-box;
   text-align: center;
   border: 1px solid rgba(212,175,102,.45);
@@ -17,18 +17,16 @@
   background: rgba(20,16,12,.92);
   box-shadow: 0 14px 34px rgba(0,0,0,.55);
   backdrop-filter: blur(4px);
-  cursor: grab;              /* arrastavel */
   user-select: none;
   touch-action: none;
+  overflow: hidden;
 }
-#dado.dragging{ cursor: grabbing; box-shadow: 0 18px 44px rgba(0,0,0,.7); }
+#dado.dragging{ box-shadow: 0 18px 44px rgba(0,0,0,.7); }
 
 /* o dado e o botao continuam clicaveis normalmente */
 #dado .dice-stage,
 #dado .dice-btn{ cursor: pointer; }
 
-#dado h3{ margin: 0 0 4px; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; }
-#dado .dice-hint{ margin: 0 0 10px; font-size: 11px; opacity: .6; }
 #dado .dice-result{ margin-top: 10px; font-size: 14px; }
 #dado .dice-by{ font-size: 11px; opacity: .65; min-height: 14px; }
 #dado .dice-btn{ margin-top: 10px; width: 100%; }

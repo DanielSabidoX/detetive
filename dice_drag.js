@@ -1,7 +1,7 @@
 /* ===== Arrastar o dado pela tela =====
-   Adicione DEPOIS do dice_v3.js e depois do mountDice():
-   <script src="dado/dice_drag.js"></script>
-   <script>makeDiceDragable('#dado');</script>  */
+   Adicione DEPOIS do dice.js e depois do mountDice():
+   <script src="dice_drag.js"></script>
+   <script>makeDiceDraggable('#dado');</script>  */
 (function(){
   var POS_KEY = 'casoArquivado_dado_pos_v1';
 
@@ -22,8 +22,9 @@
     var dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
 
     function down(e){
-      // nao arrasta quando clica no botao (deixa o clique funcionar)
+      // nao arrasta quando clica no botao de rolar ou no botao de minimizar
       if(e.target.closest('.dice-btn')) return;
+      if(e.target.closest('.dice-toggle')) return;
       var r = el.getBoundingClientRect();
       el.style.left = r.left + 'px';
       el.style.top  = r.top  + 'px';
