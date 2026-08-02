@@ -206,12 +206,22 @@ async function joinRoom(){
         render();
         return;
       }
-      await roomsCol().doc(code).update({
+      var updates = {
         players: fv().arrayUnion({id:pid, name:name, eliminated:false}),
         log: fv().arrayUnion({text:name+' entrou no caso.', type:'system', ts:nowTs()})
-      });
+      };
+      var becameHost = !room.hostId;
+      if(becameHost){
+        updates.hostId = pid;
+        updates.log = fv().arrayUnion(
+          {text:name+' entrou no caso.', type:'system', ts:nowTs()},
+          {text:'👑 '+name+' é o anfitrião da sala.', type:'system', ts:nowTs()}
+        );
+      }
+      await roomsCol().doc(code).update(updates);
       room = Object.assign({}, room, {
-        players: room.players.concat([{id:pid, name:name, eliminated:false}])
+        players: room.players.concat([{id:pid, name:name, eliminated:false}]),
+        hostId: becameHost ? pid : room.hostId
       });
     }
   }catch(e){
@@ -495,6 +505,14 @@ async function goHistory(){
   render();
 }
 
+// escolhe quem vira o novo anfitrião quando o atual sai (prefere alguém ainda ativo no jogo)
+function pickNewHost(players, excludeId){
+  var candidates = players.filter(function(p){ return p.id!==excludeId; });
+  var active = candidates.filter(function(p){ return !p.eliminated; });
+  var pick = active[0] || candidates[0];
+  return pick ? pick.id : null;
+}
+
 async function leaveGame(){
   var room = state.room;
   var me = room && room.players.filter(function(p){return p.id===state.playerId;})[0];
@@ -510,19 +528,66 @@ async function leaveGame(){
           if(p.id===state.playerId){ p.eliminated = true; }
           return p;
         });
-        tx.update(ref, {
+        var text = '🚪 '+state.name+' saiu da partida e foi eliminado. Cartas reveladas: '+cardsText+'.';
+        var updates = {
           players: players,
-          log: fv().arrayUnion({
-            text: '🚪 '+state.name+' saiu da partida e foi eliminado. Cartas reveladas: '+cardsText+'.',
-            type: 'normal', ts: nowTs()
-          })
-        });
+          log: fv().arrayUnion({text:text, type:'normal', ts:nowTs()})
+        };
+        if(data.hostId === state.playerId){
+          var newHostId = pickNewHost(players, state.playerId);
+          if(newHostId){
+            var newHost = players.filter(function(p){return p.id===newHostId;})[0];
+            updates.hostId = newHostId;
+            updates.log = fv().arrayUnion(
+              {text:text, type:'normal', ts:nowTs()},
+              {text:'👑 '+(newHost?newHost.name:'?')+' agora é o anfitrião da sala.', type:'system', ts:nowTs()}
+            );
+          }
+        }
+        tx.update(ref, updates);
       });
     }catch(e){
       console.warn('Não foi possível registrar a saída do jogador:', e);
     }
   }
 
+  goHome();
+}
+
+async function leaveLobby(){
+  var room = state.room;
+  if(room && room.phase==='lobby'){
+    try{
+      await db.runTransaction(async function(tx){
+        var ref = roomsCol().doc(room.code);
+        var snap = await tx.get(ref);
+        var data = snap.data();
+        var remaining = data.players.filter(function(p){ return p.id!==state.playerId; });
+        var updates = {
+          players: remaining,
+          log: fv().arrayUnion({text: state.name+' saiu da sala.', type:'system', ts:nowTs()})
+        };
+        if(data.hostId === state.playerId){
+          if(remaining.length){
+            var newHostId = pickNewHost(remaining, state.playerId);
+            if(newHostId){
+              var newHost = remaining.filter(function(p){return p.id===newHostId;})[0];
+              updates.hostId = newHostId;
+              updates.log = fv().arrayUnion(
+                {text: state.name+' saiu da sala.', type:'system', ts:nowTs()},
+                {text: '👑 '+(newHost?newHost.name:'?')+' agora é o anfitrião da sala.', type:'system', ts:nowTs()}
+              );
+            }
+          } else {
+            updates.hostId = null; // sala vazia — o próximo a entrar vira anfitrião automaticamente
+          }
+        }
+        tx.update(ref, updates);
+      });
+    }catch(e){
+      console.warn('Não foi possível registrar a saída do jogador:', e);
+    }
+  }
   goHome();
 }
 
@@ -591,7 +656,7 @@ function renderLobby(){
     '<h1>DETETIVE</h1>'+
   '</div>'+
   '<div class="panel">'+
-    '<div class="section-title"><h2>Código do Caso</h2><button class="small" onclick="__actions.goHome()">Sair</button></div>'+
+    '<div class="section-title"><h2>Código do Caso</h2><button class="small" onclick="__actions.leaveLobby()">Sair</button></div>'+
     '<div class="code-badge">'+esc(room.code)+'</div>'+
     '<p class="hint">Compartilhe esse código com os outros jogadores para eles entrarem.</p>'+
   '</div>'+
@@ -831,6 +896,7 @@ window.__actions = {
   cancelRoom: cancelRoom,
   goHome: goHome,
   leaveGame: leaveGame,
+  leaveLobby: leaveLobby,
   goHistory: goHistory,
   passTurn: passTurn,
   openSuggest: function(){ state.showSuggestModal=true; render(); },
