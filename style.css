@@ -123,6 +123,9 @@
     padding:8px 16px;border-radius:4px;
     font-family:'Oswald',sans-serif;font-size:20px;letter-spacing:0.15em;color:var(--gold-bright);
   }
+  .code-row{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  }
 
   .players-list{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
   .player-row{

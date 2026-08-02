@@ -10,6 +10,7 @@
   z-index: 9996;
   width: 320px;
   max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 48px);
   box-sizing: border-box;
   border: 1px solid rgba(212,175,102,.45);
   border-radius: 14px;
@@ -20,14 +21,17 @@
   font-family: 'Courier Prime', monospace;
   color: var(--paper, #ece0c4);
   display: none; /* só aparece quando o script confirmar que você é o anfitrião */
+  flex-direction: column;
+  overflow: hidden;
 }
-#admin-painel.visible{ display: block; }
+#admin-painel.visible{ display: flex; }
 
 #admin-painel .adm-handle{
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 14px;
   cursor: grab;
   border-bottom: 1px solid rgba(212,175,102,.25);
+  flex-shrink: 0;
 }
 #admin-painel.dragging-panel .adm-handle{ cursor: grabbing; }
 #admin-painel .adm-handle h3{
@@ -41,7 +45,29 @@
 }
 #admin-painel .adm-toggle:hover{background:var(--gold,#b8863b);color:#1a1509;}
 
-#admin-painel .adm-body{ padding: 14px; }
+#admin-painel .adm-body{
+  padding: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold,#b8863b) rgba(0,0,0,.35);
+}
+#admin-painel .adm-body::-webkit-scrollbar{
+  width: 10px;
+}
+#admin-painel .adm-body::-webkit-scrollbar-track{
+  background: rgba(0,0,0,.35);
+  border-radius: 6px;
+}
+#admin-painel .adm-body::-webkit-scrollbar-thumb{
+  background-color: var(--gold,#b8863b);
+  border-radius: 6px;
+  border: 2px solid rgba(20,16,12,.94);
+}
+#admin-painel .adm-body::-webkit-scrollbar-thumb:hover{
+  background-color: var(--gold-bright,#d9a44f);
+}
 #admin-painel.collapsed .adm-body{ display:none; }
 
 #admin-painel .adm-badge{
@@ -88,6 +114,19 @@
 #admin-painel .adm-status{
   font-size: 11px; color: var(--ok,#5f8a52); margin-top: 8px; text-align:center;
 }
+#admin-painel select{
+  width:100%;
+  background:rgba(0,0,0,.25);
+  border:1px solid var(--line,#3a3122);
+  color:var(--paper,#ece0c4);
+  font-family:'Courier Prime',monospace;
+  font-size:13px;
+  padding:8px 10px;
+  border-radius:3px;
+  outline:none;
+}
+#admin-painel select:focus{ border-color: var(--gold,#b8863b); }
+
 #admin-painel .adm-empty{
   font-size:12px;color:var(--muted,#a89a7d);font-style:italic;text-align:center;padding:6px 0;
 }

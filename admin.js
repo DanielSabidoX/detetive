@@ -130,38 +130,68 @@
       // o painel inteiro só fica visível pra quem é o anfitrião da sala atual
       if(isHost()){ host.classList.add('visible'); } else { host.classList.remove('visible'); return; }
 
-      if(!room || (room.phase!=='playing' && room.phase!=='ended')){
-        contentEl.innerHTML = '<div class="adm-empty">Disponível assim que a investigação começar.</div>';
+      if(!room){
+        contentEl.innerHTML = '<div class="adm-empty">Entre em uma sala para ver este painel.</div>';
         return;
       }
 
       var revealed = !!(revealState && revealState.revealed);
       var turnPlayer = currentTurnPlayer(room);
       var ended = room.phase==='ended';
+      var inGame = room.phase==='playing' || room.phase==='ended';
 
       var html = '';
 
-      html += '<div class="adm-section">'+
-        '<div class="adm-section-title">Solução do Caso</div>';
-      if(revealed){
-        html += '<div class="adm-desc">Já revelada por '+escHtml(revealState.revealedBy||'?')+'.</div>';
-      } else if(ended){
-        html += '<div class="adm-desc">O caso já foi resolvido, não é preciso revelar.</div>';
-      } else {
-        html += '<div class="adm-desc">Use se ninguém conseguir acertar o caso — mostra as 3 cartas para todos e registra no Registro do Caso.</div>'+
-          '<button type="button" class="adm-btn danger" id="adm-reveal-btn">Revelar Solução</button>';
-      }
-      html += '</div>';
+      if(inGame){
+        html += '<div class="adm-section">'+
+          '<div class="adm-section-title">Solução do Caso</div>';
+        if(revealed){
+          html += '<div class="adm-desc">Já revelada por '+escHtml(revealState.revealedBy||'?')+'.</div>';
+        } else if(ended){
+          html += '<div class="adm-desc">O caso já foi resolvido, não é preciso revelar.</div>';
+        } else {
+          html += '<div class="adm-desc">Use se ninguém conseguir acertar o caso — mostra as 3 cartas para todos e registra no Registro do Caso.</div>'+
+            '<button type="button" class="adm-btn danger" id="adm-reveal-btn">Revelar Solução</button>';
+        }
+        html += '</div>';
 
+        html += '<div class="adm-section">'+
+          '<div class="adm-section-title">Controle de Turno</div>';
+        if(ended){
+          html += '<div class="adm-desc">A partida já terminou.</div>';
+        } else if(!turnPlayer){
+          html += '<div class="adm-empty">Nenhum jogador ativo no momento.</div>';
+        } else {
+          html += '<div class="adm-current-turn">Vez atual: <b>'+escHtml(turnPlayer.name)+'</b></div>'+
+            '<button type="button" class="adm-btn" id="adm-pass-btn">Pular Vez de '+escHtml(turnPlayer.name)+'</button>';
+        }
+        html += '</div>';
+
+        var diceLocked = !!room.diceLocked;
+        html += '<div class="adm-section">'+
+          '<div class="adm-section-title">Controle do Dado</div>'+
+          '<div class="adm-desc">'+(diceLocked
+            ? 'O dado está desabilitado para todos os jogadores no momento.'
+            : 'Bloqueia o botão de rolar dado para todos os jogadores da sala.')+'</div>'+
+          '<button type="button" class="adm-btn'+(diceLocked?' danger':'')+'" id="adm-dice-toggle-btn">'+
+            (diceLocked ? 'Habilitar Dado' : 'Desabilitar Dado para Todos')+
+          '</button>'+
+        '</div>';
+      }
+
+      var others = room.players.filter(function(p){ return p.id!==room.hostId; });
       html += '<div class="adm-section">'+
-        '<div class="adm-section-title">Controle de Turno</div>';
-      if(ended){
-        html += '<div class="adm-desc">A partida já terminou.</div>';
-      } else if(!turnPlayer){
-        html += '<div class="adm-empty">Nenhum jogador ativo no momento.</div>';
+        '<div class="adm-section-title">Transferir Anfitrião</div>';
+      if(!others.length){
+        html += '<div class="adm-empty">Não há outros jogadores na sala.</div>';
       } else {
-        html += '<div class="adm-current-turn">Vez atual: <b>'+escHtml(turnPlayer.name)+'</b></div>'+
-          '<button type="button" class="adm-btn" id="adm-pass-btn">Pular Vez de '+escHtml(turnPlayer.name)+'</button>';
+        html += '<div class="adm-desc">Escolha quem vira o novo anfitrião da sala.</div>'+
+          '<select id="adm-host-select">'+
+            others.map(function(p){
+              return '<option value="'+escHtml(p.id)+'">'+escHtml(p.name)+(p.eliminated?' (eliminado)':'')+'</option>';
+            }).join('')+
+          '</select>'+
+          '<button type="button" class="adm-btn" id="adm-host-transfer-btn" style="margin-top:8px;">Tornar Anfitrião</button>';
       }
       html += '</div>';
 
@@ -171,6 +201,60 @@
       if(revealBtn){ revealBtn.addEventListener('click', doReveal); }
       var passBtn = contentEl.querySelector('#adm-pass-btn');
       if(passBtn){ passBtn.addEventListener('click', function(){ doPassTurn(turnPlayer); }); }
+      var diceBtn = contentEl.querySelector('#adm-dice-toggle-btn');
+      if(diceBtn){ diceBtn.addEventListener('click', function(){ doToggleDiceLock(room.diceLocked); }); }
+      var transferBtn = contentEl.querySelector('#adm-host-transfer-btn');
+      var hostSelect = contentEl.querySelector('#adm-host-select');
+      if(transferBtn && hostSelect){
+        transferBtn.addEventListener('click', function(){
+          var newHostId = hostSelect.value;
+          var newHost = others.filter(function(p){return p.id===newHostId;})[0];
+          if(newHost) doTransferHost(newHost);
+        });
+      }
+    }
+
+    function doTransferHost(newHost){
+      if(!roomCode || typeof db === 'undefined') return;
+      var s = getSession();
+      var byName = (s && s.name) ? s.name : 'Anfitrião';
+
+      var btn = contentEl.querySelector('#adm-host-transfer-btn');
+      if(btn){ btn.disabled = true; }
+
+      db.collection('rooms').doc(roomCode).update({
+        hostId: newHost.id,
+        log: fv().arrayUnion({
+          text: '👑 '+byName+' passou o posto de anfitrião para '+newHost.name+'.',
+          type: 'system', ts: nowTs()
+        })
+      }).catch(function(err){
+        console.warn('[painel do anfitrião] não foi possível transferir o posto:', err && err.code, err && err.message);
+        if(btn){ btn.disabled = false; }
+      });
+    }
+
+    function doToggleDiceLock(currentlyLocked){
+      if(!roomCode || typeof db === 'undefined') return;
+      var s = getSession();
+      var byName = (s && s.name) ? s.name : 'Anfitrião';
+      var next = !currentlyLocked;
+
+      var btn = contentEl.querySelector('#adm-dice-toggle-btn');
+      if(btn){ btn.disabled = true; }
+
+      db.collection('rooms').doc(roomCode).update({
+        diceLocked: next,
+        log: fv().arrayUnion({
+          text: next
+            ? '🎲 O anfitrião ('+byName+') desabilitou o dado para todos.'
+            : '🎲 O anfitrião ('+byName+') habilitou o dado novamente.',
+          type: 'system', ts: nowTs()
+        })
+      }).catch(function(err){
+        console.warn('[painel do anfitrião] não foi possível alterar o bloqueio do dado:', err && err.code, err && err.message);
+        if(btn){ btn.disabled = false; }
+      });
     }
 
     function doReveal(){

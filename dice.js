@@ -52,6 +52,7 @@
     var handle    = el.querySelector('.dice-handle');
     var toggleBtn = el.querySelector('.dice-toggle');
     var stage  = el.querySelector('.dice-stage');
+    var hintEl = el.querySelector('.dice-hint');
     var dice   = el.querySelector('.dice');
     var result = el.querySelector('.dice-result');
     var byEl   = el.querySelector('.dice-by');
@@ -72,6 +73,19 @@
     var rolling = false, spins = 0;
     var lastRollId = null;
     var roomCode = null, unsub = null;
+    var locked = false;
+
+    function applyLockUI(){
+      if(locked){
+        btn.disabled = true;
+        stage.classList.add('dice-disabled');
+        hintEl.textContent = 'O anfitrião desabilitou o dado no momento.';
+      } else {
+        if(!rolling) btn.disabled = false;
+        stage.classList.remove('dice-disabled');
+        hintEl.textContent = 'Clique no dado para rolar';
+      }
+    }
 
     function setFace(value){
       var f = FINAL[value] || FINAL[1];
@@ -101,14 +115,14 @@
           result.innerHTML = 'Resultado <b>' + value + '</b>';
           byEl.textContent = byName ? ('rolado por ' + byName) : '';
           rolling = false;
-          btn.disabled = false;
+          btn.disabled = locked;
           if(typeof window.onDiceRoll === 'function') window.onDiceRoll(value, byName);
         }, 500);
       }, 3000);
     }
 
     function roll(){
-      if(rolling) return;
+      if(rolling || locked) return;
       var value = Math.floor(Math.random()*6)+1;
       var s = getSession();
 
@@ -140,6 +154,8 @@
       if(!code || typeof db === 'undefined'){
         syncEl.textContent = 'Dado local';
         syncEl.classList.remove('on');
+        locked = false;
+        applyLockUI();
         return;
       }
       syncEl.textContent = 'Sincronizado - sala ' + code;
@@ -148,6 +164,13 @@
       var first = true;
       unsub = db.collection('rooms').doc(code).onSnapshot(function(snap){
         var d = snap.exists ? snap.data() : null;
+
+        var nowLocked = !!(d && d.diceLocked);
+        if(nowLocked !== locked){
+          locked = nowLocked;
+          applyLockUI();
+        }
+
         if(!d || !d.diceRollId){ first = false; return; }
         if(d.diceRollId === lastRollId) return;
         lastRollId = d.diceRollId;

@@ -493,6 +493,45 @@ async function markFromNotification(card){
   }
 }
 
+function copyRoomCode(){
+  var room = state.room;
+  if(!room) return;
+  var code = room.code;
+  var btn = document.getElementById('copy-code-btn');
+
+  function showCopied(){
+    if(!btn) return;
+    var original = btn.textContent;
+    btn.textContent = 'Copiado!';
+    setTimeout(function(){ if(btn) btn.textContent = original; }, 1500);
+  }
+
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(code).then(showCopied).catch(function(){
+      fallbackCopy(code, showCopied);
+    });
+  } else {
+    fallbackCopy(code, showCopied);
+  }
+}
+
+function fallbackCopy(text, onDone){
+  try{
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(onDone) onDone();
+  }catch(e){
+    console.warn('Não foi possível copiar o código:', e);
+  }
+}
+
 async function goHistory(){
   state.screen = 'history';
   render();
@@ -657,7 +696,10 @@ function renderLobby(){
   '</div>'+
   '<div class="panel">'+
     '<div class="section-title"><h2>Código do Caso</h2><button class="small" onclick="__actions.leaveLobby()">Sair</button></div>'+
-    '<div class="code-badge">'+esc(room.code)+'</div>'+
+    '<div class="code-row">'+
+      '<div class="code-badge">'+esc(room.code)+'</div>'+
+      '<button type="button" class="small" id="copy-code-btn" onclick="__actions.copyRoomCode()">Copiar</button>'+
+    '</div>'+
     '<p class="hint">Compartilhe esse código com os outros jogadores para eles entrarem.</p>'+
   '</div>'+
   '<div class="panel">'+
@@ -897,6 +939,7 @@ window.__actions = {
   goHome: goHome,
   leaveGame: leaveGame,
   leaveLobby: leaveLobby,
+  copyRoomCode: copyRoomCode,
   goHistory: goHistory,
   passTurn: passTurn,
   openSuggest: function(){ state.showSuggestModal=true; render(); },

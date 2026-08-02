@@ -47,6 +47,11 @@
   cursor:pointer;
   user-select:none;
 }
+.dice-stage.dice-disabled{
+  cursor:not-allowed;
+  opacity:.45;
+  filter:grayscale(.6);
+}
 .dice{
   position:relative;width:100px;height:100px;margin:10px;
   transform-style:preserve-3d;
