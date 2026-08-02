@@ -139,6 +139,10 @@
   text-shadow: 0 1px 2px rgba(0,0,0,.8);
 }
 .tab-pawn:hover{ box-shadow: 0 0 0 3px rgba(217,164,79,.5), 0 3px 6px rgba(0,0,0,.5); }
+.tab-pawn.unowned{
+  border-style: dashed;
+  opacity: .82;
+}
 .tab-pawn.dragging{
   cursor: grabbing;
   z-index: 20;
@@ -157,6 +161,7 @@
   width:10px;height:10px;border-radius:50%;border:1px solid rgba(0,0,0,.5);flex-shrink:0;
 }
 .tab-legend-item.you{ color: var(--gold-bright,#d9a44f); }
+.tab-legend-item.unowned{ font-style: italic; opacity: .75; }
 
 .tab-hint{
   font-size: 10.5px;

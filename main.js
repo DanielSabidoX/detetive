@@ -705,10 +705,11 @@ function renderLobby(){
   '<div class="panel">'+
     '<div class="section-title"><h2>Detetives na sala ('+players.length+')</h2></div>'+
     '<div class="players-list">'+
-      players.map(function(p){
+      players.map(function(p, idx){
         var cls = 'player-row'+(p.id===state.playerId?' you':'');
+        var pieceName = SUSPEITOS[idx];
         return '<div class="'+cls+'">'+
-          '<span>'+esc(p.name)+(p.id===state.playerId?' (você)':'')+'</span>'+
+          '<span>'+esc(p.name)+(p.id===state.playerId?' (você)':'')+(pieceName?' — <span class="piece-name">'+esc(pieceName)+'</span>':'')+'</span>'+
           (p.id===room.hostId ? '<span class="badge host">Anfitrião</span>' : '')+
         '</div>';
       }).join('')+
@@ -750,14 +751,15 @@ function renderGame(){
   html += '<div class="panel">'+
     '<div class="section-title"><h2>Detetives</h2>'+(!ended?'<button class="small" onclick="__actions.leaveGame()">Sair</button>':'')+'</div>'+
     '<div class="players-list">'+
-      room.players.map(function(p){
+      room.players.map(function(p, idx){
         var cls = 'player-row';
         if(p.id===state.playerId) cls+=' you';
         if(p.eliminated) cls+=' eliminated';
         var isTurnPlayer = !ended && currentTurnName()===p.name;
         if(isTurnPlayer) cls+=' turn';
+        var pieceName = SUSPEITOS[idx]; // mesma ordem usada no tabuleiro pra associar peão
         return '<div class="'+cls+'">'+
-          '<span>'+esc(p.name)+(p.id===state.playerId?' (você)':'')+'</span>'+
+          '<span>'+esc(p.name)+(p.id===state.playerId?' (você)':'')+(pieceName?' — <span class="piece-name">'+esc(pieceName)+'</span>':'')+'</span>'+
           '<span>'+(isTurnPlayer?'<span class="badge turnb">Na vez</span>':'')+(p.eliminated?'<span class="badge">Eliminado</span>':'')+'</span>'+
         '</div>';
       }).join('')+

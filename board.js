@@ -26,7 +26,32 @@
   var SIZE = BORDER*2 + BLOCK*3 + GAP*2; // = 18
   var CENTER_OFFSET = Math.floor(BLOCK/2); // célula usada como "âncora" central da sala
 
-  var PAWN_COLORS = ['#b5433a','#4a86b8','#5f9c4a','#c98a3c','#9c5cb8','#3ca6a0'];
+  // ---- Os 6 suspeitos do jogo original — precisa bater com o SUSPEITOS do main.js ----
+  var SUSPECTS = ["Prof. Black","Srta. Rosa","Cel. Mostarda","Dona Branca","Sr. Marinho","Dona Violeta"];
+
+  function slugify(s){
+    return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  }
+
+  // cor de cada peao de acordo com o nome do personagem
+  var PAWN_COLORS_BY_SUSPECT = {
+    'Prof. Black':   '#1a1a1a', // preto
+    'Srta. Rosa':    '#e0559a', // rosa
+    'Cel. Mostarda': '#d4a017', // mostarda
+    'Dona Branca':   '#f2efe6', // branco
+    'Sr. Marinho':   '#173a75', // azul-marinho
+    'Dona Violeta':  '#7b3fb5'  // violeta
+  };
+  var PAWN_COLORS = ['#1a1a1a','#e0559a','#d4a017','#f2efe6','#173a75','#7b3fb5'];
+
+  // escolhe texto claro ou escuro conforme a luminancia da cor do peao
+  function pawnTextColor(hex){
+    var h = String(hex).replace('#','');
+    if(h.length===3){ h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; }
+    var r = parseInt(h.substr(0,2),16), g = parseInt(h.substr(2,2),16), b = parseInt(h.substr(4,2),16);
+    var lum = (0.299*r + 0.587*g + 0.114*b)/255;
+    return lum > 0.6 ? '#1a1509' : '#fff';
+  }
 
   // cor temática de cada sala — os valores de verdade ficam em board.css (variáveis CSS),
   // aqui só apontamos qual variável cada sala usa.
@@ -127,7 +152,7 @@
         '<div class="tab-status">Sem sala ativa</div>'+
         '<div class="tab-board-wrap"></div>'+
         '<div class="tab-legend"></div>'+
-        '<div class="tab-hint">Arraste qualquer peão para mover — inclusive o dos outros jogadores.</div>'+
+        '<div class="tab-hint">Sempre 6 peões (um por suspeito). Os sem jogador aparecem tracejados — arraste qualquer peão para mover, inclusive os sem dono ou os de outros jogadores.</div>'+
       '</div>';
 
     var handle    = host.querySelector('.tab-handle');
@@ -198,18 +223,80 @@
     var unsubRoomRead = null;
     var unsubBoard = null;
 
-    function playerColor(pid){
-      var idx = players.findIndex(function(p){ return p.id===pid; });
-      if(idx<0) idx = 0;
-      return PAWN_COLORS[idx % PAWN_COLORS.length];
+    function suspectColor(idx){
+      var name = SUSPECTS[idx];
+      return PAWN_COLORS_BY_SUSPECT[name] || PAWN_COLORS[idx % PAWN_COLORS.length];
     }
     function playerInitial(name){
       return (name||'?').trim().charAt(0).toUpperCase();
     }
-    function defaultSpawn(idx){
-      // fileira de baixo, espalhados
-      var col = 2 + (idx*2) % (SIZE-2);
-      return {row: SIZE, col: Math.min(SIZE-1, Math.max(2,col))};
+    // monta as 6 posições fixas (uma por suspeito), associando jogadores reais
+    // pela ordem em que entraram na sala. Sobrando suspeitos, ficam sem dono.
+    function buildPawnSlots(){
+      return SUSPECTS.map(function(suspectName, idx){
+        var owner = players[idx] || null;
+        return {
+          suspectName: suspectName,
+          slug: slugify(suspectName),
+          color: suspectColor(idx),
+          owner: owner
+        };
+      });
+    }
+    // ---- posição inicial aleatória (nunca dentro de uma sala) ----
+    // A aleatoriedade é derivada do código da sala, então todos os jogadores
+    // veem exatamente as mesmas posições iniciais (continua sincronizado).
+    var CORRIDOR_CELLS = (function(){
+      var list = [];
+      for(var r=1; r<=SIZE; r++){
+        for(var c=1; c<=SIZE; c++){
+          if(!isRoomCell(r,c)) list.push({row:r, col:c});
+        }
+      }
+      return list;
+    })();
+
+    function seedFrom(str){
+      var h = 2166136261;
+      for(var i=0;i<str.length;i++){
+        h ^= str.charCodeAt(i);
+        h = (h * 16777619) >>> 0;
+      }
+      return h >>> 0;
+    }
+    function nextRand(seed){
+      seed ^= seed << 13; seed >>>= 0;
+      seed ^= seed >> 17;
+      seed ^= seed << 5;  seed >>>= 0;
+      return seed >>> 0;
+    }
+
+    var spawnCache = {};   // roomCode -> { slug: {row,col} }
+    function spawnMap(){
+      var key = roomCode || '_sem-sala';
+      if(spawnCache[key]) return spawnCache[key];
+      var map = {};
+      var used = {};
+      var seed = seedFrom(key);
+      SUSPECTS.forEach(function(name){
+        var slug = slugify(name);
+        var cell = null;
+        for(var tries=0; tries<200 && CORRIDOR_CELLS.length; tries++){
+          seed = nextRand(seed);
+          var cand = CORRIDOR_CELLS[seed % CORRIDOR_CELLS.length];
+          var k = cand.row+','+cand.col;
+          if(!used[k]){ used[k] = true; cell = cand; break; }
+        }
+        if(!cell) cell = CORRIDOR_CELLS[0] || {row:SIZE, col:SIZE};
+        map[slug] = {row:cell.row, col:cell.col};
+      });
+      spawnCache[key] = map;
+      return map;
+    }
+
+    function defaultSpawn(idx, slug){
+      var map = spawnMap();
+      return map[slug] || {row:SIZE, col:Math.min(SIZE-1, Math.max(2, 2 + (idx*2) % (SIZE-2)))};
     }
 
     function buildBoardSkeleton(){
@@ -283,12 +370,15 @@
     }
 
     function renderLegend(){
-      legendEl.innerHTML = players.map(function(p){
-        var me = getSession();
-        var mine = me && me.pid === p.id;
-        return '<span class="tab-legend-item'+(mine?' you':'')+'">'+
-          '<span class="tab-legend-dot" style="background:'+playerColor(p.id)+'"></span>'+
-          escHtml(p.name)+(mine?' (você)':'')+
+      var me = getSession();
+      legendEl.innerHTML = buildPawnSlots().map(function(slot){
+        var mine = !!(slot.owner && me && me.pid === slot.owner.id);
+        var label = slot.owner
+          ? escHtml(slot.suspectName)+' — '+escHtml(slot.owner.name)+(mine?' (você)':'')
+          : escHtml(slot.suspectName)+' — sem jogador';
+        return '<span class="tab-legend-item'+(mine?' you':'')+(slot.owner?'':' unowned')+'">'+
+          '<span class="tab-legend-dot" style="background:'+slot.color+'"></span>'+
+          label+
         '</span>';
       }).join('');
     }
@@ -299,30 +389,33 @@
       var old = boardEl.querySelectorAll('.tab-pawn');
       for(var i=0;i<old.length;i++){ old[i].remove(); }
 
+      var slots = buildPawnSlots();
+
       // agrupa peões por célula pra espalhar visualmente quando empilhados
       var byCell = {};
-      players.forEach(function(p, idx){
-        var pos = pawns[p.id] || defaultSpawn(idx);
+      slots.forEach(function(slot, idx){
+        var pos = pawns[slot.slug] || defaultSpawn(idx, slot.slug);
         var key = pos.row+','+pos.col;
-        (byCell[key] = byCell[key]||[]).push({player:p, pos:pos});
+        (byCell[key] = byCell[key]||[]).push({slot:slot, pos:pos});
       });
 
       Object.keys(byCell).forEach(function(key){
         var group = byCell[key];
         group.forEach(function(item, gi){
-          var p = item.player, pos = item.pos;
+          var slot = item.slot, pos = item.pos;
           var center = cellCenterPx(pos.row, pos.col);
           var spread = group.length>1 ? (gi - (group.length-1)/2) * 12 : 0;
 
           var el = document.createElement('div');
-          el.className = 'tab-pawn';
+          el.className = 'tab-pawn'+(slot.owner ? '' : ' unowned');
           el.style.left = (center.x + spread) + 'px';
           el.style.top  = (center.y) + 'px';
-          el.style.background = playerColor(p.id);
-          el.textContent = playerInitial(p.name);
-          el.title = p.name;
-          el.dataset.pid = p.id;
-          attachPawnDrag(el, p.id);
+          el.style.background = slot.color;
+          el.style.color = pawnTextColor(slot.color);
+          el.textContent = slot.owner ? playerInitial(slot.owner.name) : '';
+          el.title = slot.owner ? (slot.suspectName+' — '+slot.owner.name) : (slot.suspectName+' — sem jogador (mova manualmente)');
+          el.dataset.slug = slot.slug;
+          attachPawnDrag(el, slot.slug);
           boardEl.appendChild(el);
         });
       });
@@ -333,13 +426,13 @@
       for(var i=0;i<hl.length;i++){ hl[i].classList.remove('drop-hover'); }
     }
 
-    function attachPawnDrag(el, pid){
+    function attachPawnDrag(el, slug){
       var dragging=false, offX=0, offY=0;
 
       el.addEventListener('pointerdown', function(e){
         e.stopPropagation();
         dragging = true;
-        draggingPawnId = pid;
+        draggingPawnId = slug;
         el.classList.add('dragging');
         var boardRect = boardEl.getBoundingClientRect();
         offX = e.clientX - boardRect.left - parseFloat(el.style.left);
@@ -382,27 +475,27 @@
         var cellIdx = pxToCell(x, y);
         var snapped = snapCell(cellIdx.row, cellIdx.col);
 
-        pawns[pid] = {row:snapped.row, col:snapped.col};
+        pawns[slug] = {row:snapped.row, col:snapped.col};
         renderPawns();
-        savePawnPosition(pid, snapped.row, snapped.col);
+        savePawnPosition(slug, snapped.row, snapped.col);
       }
       el.addEventListener('pointerup', finish);
       el.addEventListener('pointercancel', finish);
     }
 
-    function savePawnPosition(pid, row, col){
+    function savePawnPosition(slug, row, col){
       if(!roomCode || typeof db === 'undefined') return;
       var ref = db.collection('board_positions').doc(roomCode);
       var value = {row:row, col:col, at: Date.now()};
       var dotField = {};
-      dotField['pawns.'+pid] = value;
-      // update() interpreta "pawns.<id>" como caminho aninhado corretamente.
+      dotField['pawns.'+slug] = value;
+      // update() interpreta "pawns.<slug>" como caminho aninhado corretamente.
       ref.update(dotField).catch(function(err){
         // Se o documento ainda não existe (primeira jogada nesta sala), update() falha.
         // Nesse caso criamos o documento com a estrutura aninhada de verdade.
         if(err && (err.code === 'not-found' || /No document to update/i.test(err.message||''))){
           var nested = {pawns:{}};
-          nested.pawns[pid] = value;
+          nested.pawns[slug] = value;
           ref.set(nested, {merge:true}).catch(function(err2){
             console.warn('[tabuleiro] não foi possível criar a posição do peão:', err2 && err2.code, err2 && err2.message);
           });
