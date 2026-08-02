@@ -170,6 +170,8 @@
     display:flex;flex-direction:column;gap:6px;
     font-size:13px;
     padding-right:4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold,#b8863b) rgba(0,0,0,.35);
   }
   .log-entry{padding:8px 10px;border-left:2px solid var(--line);background:var(--panel-2);border-radius:0 3px 3px 0;}
   .log-entry.system{border-left-color:var(--gold);color:var(--gold-bright);}
