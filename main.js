@@ -409,6 +409,8 @@ async function makeSuggestion(){
   await roomsCol().doc(room.code).update({
     log: fv().arrayUnion({text:state.name+' sugeriu: '+pick.suspeito+' + '+pick.arma+' + '+pick.local+'. Aguardando alguém mostrar uma carta.', type:'normal', ts:nowTs()})
   });
+  // move o peão do suspeito e a arma do palpite para o cômodo indicado
+  try{ if(window.boardMoveToRoom) window.boardMoveToRoom(pick.suspeito, pick.arma, pick.local); }catch(e){}
   state.showSuggestModal = false;
   render();
 }
@@ -435,6 +437,8 @@ async function showCardTo(targetId){
 async function makeAccusation(){
   var room = state.room;
   var pick = state.accusePick;
+  // move o peão do suspeito e a arma da acusação para o cômodo indicado
+  try{ if(window.boardMoveToRoom) window.boardMoveToRoom(pick.suspeito, pick.arma, pick.local); }catch(e){}
   var correct = pick.suspeito===room.secret.suspeito && pick.arma===room.secret.arma && pick.local===room.secret.local;
 
   if(correct){

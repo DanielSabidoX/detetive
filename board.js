@@ -667,6 +667,75 @@
       });
     }
 
+    // ===== Mover peça automaticamente para a sala de um palpite/acusação =====
+    // Chamado pelo main.js: window.boardMoveToRoom(suspeito, arma, comodo)
+    var WEAPON_ALIAS = {
+      'cano':'cano-de-chumbo', 'cano-de-chumbo':'cano-de-chumbo',
+      'faca':'punhal', 'punhal':'punhal',
+      'candelabro':'castical', 'castical':'castical',
+      'revolver':'revolver', 'corda':'corda',
+      'chave-inglesa':'chave-inglesa'
+    };
+    function findRoomByName(name){
+      var s = slugify(name||'');
+      for(var i=0;i<ROOM_META.rooms.length;i++){
+        if(slugify(ROOM_META.rooms[i].name) === s) return ROOM_META.rooms[i];
+      }
+      return null;
+    }
+    function weaponSlugFor(name){
+      var s = slugify(name||'');
+      s = WEAPON_ALIAS[s] || s;
+      for(var i=0;i<WEAPONS.length;i++){
+        if(slugify(WEAPONS[i].name) === s) return slugify(WEAPONS[i].name);
+      }
+      return null;
+    }
+    function suspectSlugFor(name){
+      var s = slugify(name||'');
+      for(var i=0;i<SUSPECTS.length;i++){
+        if(slugify(SUSPECTS[i]) === s) return slugify(SUSPECTS[i]);
+      }
+      return null;
+    }
+    // devolve uma das 9 casas internas da sala que ainda esteja livre
+    function freeInteriorCell(room, reserved){
+      var taken = {};
+      function mark(map){
+        Object.keys(map||{}).forEach(function(k){
+          var p = map[k];
+          if(p && roomAt(p.row,p.col) === room) taken[p.row+','+p.col] = true;
+        });
+      }
+      mark(pawns); mark(weapons);
+      (reserved||[]).forEach(function(c){ taken[c.row+','+c.col] = true; });
+      for(var i=0;i<9;i++){
+        var cell = roomInteriorCell(room, Math.floor(i/3), i%3);
+        if(!taken[cell.row+','+cell.col]) return cell;
+      }
+      return roomInteriorCell(room, 1, 1);
+    }
+    window.boardMoveToRoom = function(suspectName, weaponName, roomName){
+      var room = findRoomByName(roomName);
+      if(!room) return;
+      var reserved = [];
+      var pSlug = suspectSlugFor(suspectName);
+      if(pSlug){
+        var pc = freeInteriorCell(room, reserved);
+        reserved.push(pc);
+        pawns[pSlug] = {row:pc.row, col:pc.col};
+        savePosition('pawns', pSlug, pc.row, pc.col);
+      }
+      var wSlug = weaponSlugFor(weaponName);
+      if(wSlug){
+        var wc = freeInteriorCell(room, reserved);
+        weapons[wSlug] = {row:wc.row, col:wc.col};
+        savePosition('weapons', wSlug, wc.row, wc.col);
+      }
+      renderPawns();
+      renderWeapons();
+    };
+
     function fullRender(){
       buildBoardSkeleton();
       renderLegend();
