@@ -1,0 +1,76 @@
+/* Voz em tempo real — arquivo independente */
+#voz-painel{
+  position:fixed;
+  right:16px;
+  bottom:16px;
+  z-index:120;
+  font-family:'Oswald',sans-serif;
+}
+.voz-box{
+  background:#1f1a13;
+  border:1px solid #3a3122;
+  border-radius:6px;
+  min-width:190px;
+  box-shadow:0 8px 24px rgba(0,0,0,.45);
+  user-select:none;
+}
+.voz-handle{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:8px 12px;
+  cursor:grab;
+  border-bottom:1px solid rgba(212,175,102,.25);
+}
+#voz-painel.dragging-panel .voz-handle{cursor:grabbing;}
+.voz-toggle{
+  background:none;border:1px solid #b8863b;color:#d9a44f;
+  font-family:'Oswald',sans-serif;font-size:12px;line-height:1;
+  width:22px;height:22px;border-radius:3px;cursor:pointer;padding:0;
+}
+.voz-toggle:hover{background:#b8863b;color:#1a1509;}
+.voz-body{padding:10px 12px;}
+#voz-painel.collapsed .voz-body{display:none;}
+.voz-title{
+  font-size:11px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:#b8863b;
+}
+.voz-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.voz-btn{
+  font-family:'Oswald',sans-serif;
+  font-weight:600;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  font-size:11px;
+  padding:7px 12px;
+  border-radius:3px;
+  border:1px solid #b8863b;
+  background:transparent;
+  color:#d9a44f;
+  cursor:pointer;
+}
+.voz-btn:hover{background:#b8863b;color:#1a1509;}
+.voz-btn.on{background:#b8863b;color:#1a1509;}
+.voz-btn.muted{border-color:#b5433a;color:#b5433a;background:transparent;}
+.voz-btn.muted:hover{background:#b5433a;color:#fff;}
+.voz-status{
+  font-family:'Courier Prime',monospace;
+  font-size:11px;
+  color:#a89a7d;
+  margin-top:8px;
+}
+.voz-peers{
+  font-family:'Courier Prime',monospace;
+  font-size:11px;
+  color:#ece0c4;
+  margin-top:6px;
+  max-height:90px;
+  overflow-y:auto;
+}
+.voz-peer{display:flex;align-items:center;gap:6px;padding:1px 0;}
+.voz-dot{width:7px;height:7px;border-radius:50%;background:#5f8a52;display:inline-block;}
+.voz-dot.off{background:#b5433a;}
+@media(max-width:600px){
+  #voz-painel{right:8px;bottom:8px;}
+  .voz-box{min-width:150px;}
+}

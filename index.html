@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="board.css">
 <link rel="stylesheet" href="solucao.css">
 <link rel="stylesheet" href="admin.css">
+<link rel="stylesheet" href="voice.css">
 </head>
 <body>
 <div class="wrap" id="app"></div>
@@ -20,6 +21,7 @@
 <div id="tabuleiro-painel"></div>
 <div id="solucao-painel"></div>
 <div id="admin-painel"></div>
+<div id="voz-painel"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -32,13 +34,16 @@
 <script src="solucao.js"></script>
 <script src="admin.js"></script>
 <script src="suspense_music.js"></script>
+<script src="voice.js"></script>
 <script>
-  mountDice('#dado');
-  makeDiceDraggable('#dado');
-  addDiceSound('#dado');   // <- adiciona o som
-  mountBoard('#tabuleiro-painel');
-  mountSolution('#solucao-painel');
-  mountAdmin('#admin-painel');
+  function safeMount(fn, sel){ try{ if(typeof window[fn]==='function') window[fn](sel); }catch(e){ console.warn(fn, e); } }
+  safeMount('mountDice','#dado');
+  safeMount('makeDiceDraggable','#dado');
+  safeMount('addDiceSound','#dado');
+  safeMount('mountBoard','#tabuleiro-painel');
+  safeMount('mountSolution','#solucao-painel');
+  safeMount('mountAdmin','#admin-painel');
+  safeMount('mountVoice','#voz-painel');
 </script>
 
 <!-- 

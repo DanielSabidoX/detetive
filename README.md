@@ -57,6 +57,22 @@ service cloud.firestore {
       allow read, write: if true;
     }    
   }
+  
+  // Voz em tempo real (WebRTC) — coleção exclusiva do módulo voice.js
+  match /voice_rooms/{roomCode} {
+    allow read, write: if true;
+
+    // Presença dos participantes (heartbeat)
+    match /peers/{peerId} {
+      allow read, write: if true;
+    }
+
+    // Sinalização: offer / answer / ICE (apagados após lidos)
+    match /signals/{signalId} {
+      allow read, create, delete: if true;
+    }
+  }
+
 }
 ```
 
