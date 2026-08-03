@@ -162,9 +162,9 @@
   }
   .card:hover{transform:translateY(-3px);}
   .card-image{display:block;width:100%;height:100%;object-fit:cover;object-position:center;}
-  .card.suspeito{border-left:4px solid var(--red-bright);}
+  /*.card.suspeito{border-left:4px solid var(--red-bright);}
   .card.arma{border-left:4px solid #4a5f7a;}
-  .card.local{border-left:4px solid #5f7a4a;}
+  .card.local{border-left:4px solid #5f7a4a;}*/
 
   .log{
     max-height:260px;overflow-y:auto;
