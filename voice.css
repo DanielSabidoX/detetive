@@ -19,6 +19,7 @@
   padding:8px 12px;
   cursor:grab;
   border-bottom:1px solid rgba(212,175,102,.25);
+  touch-action: none;
 }
 #voz-painel.dragging-panel .voz-handle{cursor:grabbing;}
 .voz-toggle{

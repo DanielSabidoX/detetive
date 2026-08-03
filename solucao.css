@@ -25,6 +25,7 @@
   padding:10px 14px;
   cursor: grab;
   border-bottom: 1px solid rgba(212,175,102,.25);
+  touch-action: none;
 }
 #solucao-painel.dragging-panel .sol-handle{ cursor: grabbing; }
 #solucao-painel .sol-handle h3{
