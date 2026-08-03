@@ -449,7 +449,7 @@
         zoomAt(e.clientX - rect.left, e.clientY - rect.top, zoom * Math.exp(-dy * 0.0018));
       }, { passive:false });
 
-      // arrastar o mapa com o mouse (as peças param a propagação, então continuam arrastáveis)
+      // arrastar o mapa com o mouse/dedo (as peças param a propagação, então continuam arrastáveis)
       var panning = false, sx = 0, sy = 0, spx = 0, spy = 0, pid = null;
       boardWrap.addEventListener('pointerdown', function(e){
         if(!boardEl) return;
@@ -461,6 +461,7 @@
         boardWrap.setPointerCapture && boardWrap.setPointerCapture(e.pointerId);
       });
       boardWrap.addEventListener('pointermove', function(e){
+        if(pinchActive) return; // pinça com 2 dedos tem prioridade (ver mais abaixo)
         if(!panning || e.pointerId !== pid) return;
         panX = spx + (e.clientX - sx);
         panY = spy + (e.clientY - sy);
@@ -474,6 +475,41 @@
       }
       boardWrap.addEventListener('pointerup', endPan);
       boardWrap.addEventListener('pointercancel', endPan);
+
+      // ---- pinça com dois dedos para zoom (Touch Events puros — não depende
+      // de pointerdown chegar até aqui, então funciona mesmo se o dedo tocar
+      // em cima de um peão, que já para a propagação do pointerdown) ----
+      var pinchActive = false, pinchStartDist = 1, pinchStartZoom = 1, pinchCx = 0, pinchCy = 0;
+      function touchDist(t1, t2){
+        return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      }
+      boardWrap.addEventListener('touchstart', function(e){
+        if(e.touches.length < 2) return;
+        e.preventDefault();
+        panning = false; // cancela qualquer arrasto de um dedo em andamento
+        pinchActive = true;
+        var t1 = e.touches[0], t2 = e.touches[1];
+        pinchStartDist = touchDist(t1, t2) || 1;
+        pinchStartZoom = zoom;
+        var rect = boardWrap.getBoundingClientRect();
+        pinchCx = (t1.clientX + t2.clientX) / 2 - rect.left;
+        pinchCy = (t1.clientY + t2.clientY) / 2 - rect.top;
+      }, { passive: false });
+      boardWrap.addEventListener('touchmove', function(e){
+        if(!pinchActive || e.touches.length < 2) return;
+        e.preventDefault();
+        var t1 = e.touches[0], t2 = e.touches[1];
+        var d = touchDist(t1, t2) || 1;
+        zoomAt(pinchCx, pinchCy, pinchStartZoom * (d / pinchStartDist));
+      }, { passive: false });
+      function endPinch(e){
+        if(e.touches.length < 2){
+          if(pinchActive) saveZoom();
+          pinchActive = false;
+        }
+      }
+      boardWrap.addEventListener('touchend', endPinch, { passive: false });
+      boardWrap.addEventListener('touchcancel', endPinch, { passive: false });
 
       // botões + / - / enquadrar
       boardWrap.addEventListener('click', function(e){
