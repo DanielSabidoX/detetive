@@ -105,10 +105,14 @@
           '<h1>Painel Administrativo</h1>'+
           '<p class="adm-sub">Acesso restrito à equipe. Entre com uma conta Google cadastrada no projeto.</p>'+
           '<button type="button" class="adm-google-btn" id="btn-google-login">Entrar com Google</button>'+
+          '<button type="button" class="voltar-btn" id="btn-voltar">Voltar a tela do Jogo</button>'+
           '<div class="adm-error-msg" id="adm-login-error"></div>'+
         '</div>'+
       '</div>';
     document.getElementById('btn-google-login').addEventListener('click', login);
+    document.getElementById('btn-voltar').addEventListener('click', function(){
+      window.location.href = '../';
+    });
   }
 
   function renderShell(){
