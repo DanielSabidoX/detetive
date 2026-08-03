@@ -186,15 +186,15 @@
     c = Math.max(1, Math.min(SIZE, Math.round(c)));
     return {row:r, col:c};
   }
-  // ---- Interior das salas: 9 "casas" (grade 3x3) dentro do bloco da sala ----
-  // As casas usadas são as linhas r0+1..r0+3 e colunas c0+1..c0+3, ou seja,
-  // sempre dentro da sala e nunca em cima das portas.
+  // ---- Interior das salas: TODAS as casas do bloco (grade BLOCK x BLOCK) ----
+  // Qualquer célula do bloco da sala pode receber peão/arma. As portas ficam
+  // nos corredores (fora do bloco), então não há conflito.
   function roomInteriorCell(room, si, sj){
-    return { row: room.r0 + 1 + si, col: room.c0 + 1 + sj };
+    return { row: room.r0 + si, col: room.c0 + sj };
   }
   function roomSlotIndex(room, row, col){
-    var si = Math.max(0, Math.min(2, row - room.r0 - 1));
-    var sj = Math.max(0, Math.min(2, col - room.c0 - 1));
+    var si = Math.max(0, Math.min(BLOCK-1, row - room.r0));
+    var sj = Math.max(0, Math.min(BLOCK-1, col - room.c0));
     return { si: si, sj: sj };
   }
   // se caiu dentro de uma sala, "gruda" na casa interna mais próxima (3x3)
@@ -394,10 +394,10 @@
       var map = {};
       WEAPONS.forEach(function(w, idx){
         var room = ROOM_META.rooms[order[idx % order.length]];
-        // cai numa das 9 casas internas da sala (sorteada, nunca na borda/porta)
+        // cai numa das casas internas da sala (sorteada)
         seed = nextRand(seed);
-        var slot = seed % 9;
-        var cell = roomInteriorCell(room, Math.floor(slot/3), slot % 3);
+        var slot = seed % (BLOCK*BLOCK);
+        var cell = roomInteriorCell(room, Math.floor(slot/BLOCK), slot % BLOCK);
         map[slugify(w.name)] = cell;
       });
       weaponSpawnCache[key] = map;
@@ -473,16 +473,14 @@
     // posição de uma peça: fora das salas é o centro da célula; dentro da sala
     // é uma das 9 casas internas, distribuídas em grade 3x3 dentro do bloco
     // (bem afastadas das bordas/portas).
+    // As peças ficam SEMPRE no centro exato da célula (corredor ou sala).
+    // Assim a posição visual e a célula gravada nunca divergem.
     function pieceCenterPx(row, col){
+      var p = cellCenterPx(row, col);
       var room = roomAt(row, col);
-      if(!room) return cellCenterPx(row, col);
-      var step = cellPx + GAP_PX;
-      var blockW = BLOCK*cellPx + (BLOCK-1)*GAP_PX;
-      var left = (room.c0-1)*step, top = (room.r0-1)*step;
-      var s = roomSlotIndex(room, row, col);
-      var fx = [0.22, 0.50, 0.78][s.sj];
-      var fy = [0.34, 0.58, 0.82][s.si]; // primeira linha mais baixa por causa do nome da sala
-      return { x: left + blockW*fx, y: top + blockW*fy };
+      // na primeira linha da sala o nome ocupa espaço: desce um pouco, sem sair da célula
+      if(room && row === room.r0) p.y += Math.min(5, cellPx*0.18);
+      return p;
     }
     // caminho inverso: de um pixel (x,y) pra qual célula (row/col) ele corresponde
     function pxToCell(x, y){
@@ -513,6 +511,7 @@
       var old = boardEl.querySelectorAll('.tab-weapon');
       for(var i=0;i<old.length;i++){ old[i].remove(); }
 
+      var wGroups = cellGroups();
       var byCell = {};
       WEAPONS.forEach(function(w){
         var slug = slugify(w.name);
@@ -525,11 +524,13 @@
         var group = byCell[key];
         group.forEach(function(item, gi){
           var center = pieceCenterPx(item.pos.row, item.pos.col);
-          var spread = group.length>1 ? (gi - (group.length-1)/2) * 10 : 0;
+          var off = pieceOffset(wGroups, item.pos, 'weapons', item.slug);
           var el = document.createElement('div');
           el.className = 'tab-weapon';
-          el.style.left = (center.x + spread) + 'px';
-          el.style.top  = (center.y + 8) + 'px';
+          el.style.left = (center.x + off.dx) + 'px';
+          el.style.top  = (center.y + off.dy) + 'px';
+          el.style.zIndex = '5';
+          el.dataset.row = item.pos.row; el.dataset.col = item.pos.col;
           el.innerHTML = weaponSvg(item.slug);
           el.title = item.w.label + ' — arraste para mover';
           el.dataset.slug = item.slug;
@@ -539,6 +540,35 @@
       });
     }
 
+    // ---- empilhamento: peões E armas contam juntos, para nunca ficarem
+    // exatamente um em cima do outro (o de cima roubava o clique do de baixo) ----
+    function cellGroups(){
+      var groups = {};
+      function add(kind, slug, pos){
+        var key = pos.row+','+pos.col;
+        (groups[key] = groups[key] || []).push(kind+'|'+slug);
+      }
+      buildPawnSlots().forEach(function(slot, idx){
+        add('pawns', slot.slug, pawns[slot.slug] || defaultSpawn(idx, slot.slug));
+      });
+      WEAPONS.forEach(function(w){
+        var slug = slugify(w.name);
+        add('weapons', slug, weapons[slug] || defaultWeaponSpawn(slug));
+      });
+      return groups;
+    }
+    // Cada peça que divide uma casa recebe um "cantinho" próprio, para que
+    // nenhuma fique exatamente em cima da outra roubando o clique.
+    var STACK_SPOTS = [[-1,-1],[1,1],[1,-1],[-1,1],[0,-1],[0,1],[-1,0],[1,0]];
+    function pieceOffset(groups, pos, kind, slug){
+      var list = groups[pos.row+','+pos.col] || [];
+      if(list.length < 2) return { dx:0, dy:0 };
+      var k = list.indexOf(kind+'|'+slug); if(k < 0) k = 0;
+      var spot = STACK_SPOTS[k % STACK_SPOTS.length];
+      var rad = Math.max(8, cellPx*0.34);
+      return { dx: spot[0]*rad, dy: spot[1]*rad };
+    }
+
     function renderPawns(){
       if(!boardEl) return;
       // remove peões antigos
@@ -546,6 +576,7 @@
       for(var i=0;i<old.length;i++){ old[i].remove(); }
 
       var slots = buildPawnSlots();
+      var groups = cellGroups();
 
       // agrupa peões por célula pra espalhar visualmente quando empilhados
       var byCell = {};
@@ -560,12 +591,14 @@
         group.forEach(function(item, gi){
           var slot = item.slot, pos = item.pos;
           var center = pieceCenterPx(pos.row, pos.col);
-          var spread = group.length>1 ? (gi - (group.length-1)/2) * 12 : 0;
+          var off = pieceOffset(groups, pos, 'pawns', slot.slug);
 
           var el = document.createElement('div');
           el.className = 'tab-pawn'+(slot.owner ? '' : ' unowned');
-          el.style.left = (center.x + spread) + 'px';
-          el.style.top  = (center.y) + 'px';
+          el.style.left = (center.x + off.dx) + 'px';
+          el.style.top  = (center.y + off.dy) + 'px';
+          el.style.zIndex = '6';
+          el.dataset.row = pos.row; el.dataset.col = pos.col;
           el.style.background = slot.color;
           el.style.color = pawnTextColor(slot.color);
           el.textContent = slot.owner ? playerInitial(slot.owner.name) : '';
@@ -583,7 +616,7 @@
     }
 
     function attachDrag(el, slug, kind){
-      var dragging=false, offX=0, offY=0;
+      var dragging=false, offX=0, offY=0, lastCell=null;
 
       el.addEventListener('pointerdown', function(e){
         e.stopPropagation();
@@ -593,6 +626,7 @@
         var boardRect = boardEl.getBoundingClientRect();
         offX = e.clientX - boardRect.left - parseFloat(el.style.left);
         offY = e.clientY - boardRect.top - parseFloat(el.style.top);
+        lastCell = { row: parseInt(el.dataset.row,10) || 1, col: parseInt(el.dataset.col,10) || 1 };
         el.setPointerCapture && el.setPointerCapture(e.pointerId);
       });
 
@@ -604,8 +638,12 @@
         el.style.left = x+'px';
         el.style.top  = y+'px';
 
-        var cellIdx = pxToCell(x, y);
+        // a célula-alvo vem da posição do CURSOR (é o que o jogador aponta),
+        // nunca da posição visual da peça (que pode ter deslocamento de empilhamento)
+        var pc = pxToCell(e.clientX - boardRect.left, e.clientY - boardRect.top);
+        var cellIdx = clampCell(pc.row, pc.col);
         var col = cellIdx.col, row = cellIdx.row;
+        lastCell = { row: row, col: col };
         clearDropHighlights();
         var target = boardEl.querySelector('[data-row="'+row+'"][data-col="'+col+'"]');
         if(target){ target.classList.add('drop-hover'); }
@@ -625,10 +663,7 @@
         el.classList.remove('dragging');
         clearDropHighlights();
 
-        var boardRect = boardEl.getBoundingClientRect();
-        var x = parseFloat(el.style.left) || 0;
-        var y = parseFloat(el.style.top) || 0;
-        var cellIdx = pxToCell(x, y);
+        var cellIdx = lastCell || pxToCell(parseFloat(el.style.left)||0, parseFloat(el.style.top)||0);
         var snapped = snapCell(cellIdx.row, cellIdx.col);
 
         if(kind === 'weapons'){
@@ -698,7 +733,7 @@
       }
       return null;
     }
-    // devolve uma das 9 casas internas da sala que ainda esteja livre
+    // devolve uma das casas internas da sala que ainda esteja livre
     function freeInteriorCell(room, reserved){
       var taken = {};
       function mark(map){
@@ -709,8 +744,8 @@
       }
       mark(pawns); mark(weapons);
       (reserved||[]).forEach(function(c){ taken[c.row+','+c.col] = true; });
-      for(var i=0;i<9;i++){
-        var cell = roomInteriorCell(room, Math.floor(i/3), i%3);
+      for(var i=0;i<BLOCK*BLOCK;i++){
+        var cell = roomInteriorCell(room, Math.floor(i/BLOCK), i%BLOCK);
         if(!taken[cell.row+','+cell.col]) return cell;
       }
       return roomInteriorCell(room, 1, 1);
