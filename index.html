@@ -27,16 +27,25 @@
 <script src="main.js"></script>
 <script src="dice.js"></script>
 <script src="dice_drag.js"></script>
+<script src="dice_sound.js"></script>
 <script src="board.js"></script>
 <script src="solucao.js"></script>
 <script src="admin.js"></script>
+<script src="suspense_music.js"></script>
 <script>
   mountDice('#dado');
   makeDiceDraggable('#dado');
+  addDiceSound('#dado');   // <- adiciona o som
   mountBoard('#tabuleiro-painel');
   mountSolution('#solucao-painel');
   mountAdmin('#admin-painel');
 </script>
+
+<!-- 
+<script>
+  addSuspenseMusic({ volume: 0.3 });   // <- música de fundo 
+</script>
+-->
 
 </body>
 </html>
