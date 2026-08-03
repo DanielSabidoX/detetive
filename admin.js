@@ -126,9 +126,29 @@
       return !!(s && room && s.pid === room.hostId);
     }
 
+    // quando o tabuleiro avisa que o zoom sincronizado mudou, atualiza o botão
+    var _renderingAdmin = false;
+    window.addEventListener('board-zoom-sync-changed', function(){
+      if(_renderingAdmin) return;
+      render();
+    });
+
     function render(){
+      _renderingAdmin = true;
+      try{ renderInner(); } finally { _renderingAdmin = false; }
+    }
+
+    function renderInner(){
       // o painel inteiro só fica visível pra quem é o anfitrião da sala atual
-      if(isHost()){ host.classList.add('visible'); } else { host.classList.remove('visible'); return; }
+      if(isHost()){
+        host.classList.add('visible');
+        if(typeof window.boardForceHostControls === 'function') window.boardForceHostControls(true);
+      } else {
+        host.classList.remove('visible');
+        if(typeof window.boardForceHostControls === 'function') window.boardForceHostControls(false);
+        return;
+      }
+
 
       if(!room){
         contentEl.innerHTML = '<div class="adm-empty">Entre em uma sala para ver este painel.</div>';
@@ -179,6 +199,23 @@
         '</div>';
       }
 
+      // ---- Zoom do mapa sincronizado ----
+      var zoomSynced = (typeof window.boardIsZoomSynced === 'function') ? !!window.boardIsZoomSynced() : false;
+      var hasBoard = (typeof window.boardSetZoomSync === 'function');
+      html += '<div class="adm-section">'+
+        '<div class="adm-section-title">Zoom do Mapa</div>';
+      if(!hasBoard){
+        html += '<div class="adm-empty">Abra o tabuleiro para controlar o zoom.</div>';
+      } else {
+        html += '<div class="adm-desc">'+(zoomSynced
+          ? 'O zoom está sincronizado: quando qualquer jogador dá zoom ou arrasta o mapa, todos veem igual.'
+          : 'Cada jogador controla o zoom do mapa localmente.')+'</div>'+
+          '<button type="button" class="adm-btn'+(zoomSynced?' danger':'')+'" id="adm-zoom-sync-btn">'+
+            (zoomSynced ? 'Desativar Zoom Sincronizado' : 'Sincronizar Zoom para Todos')+
+          '</button>';
+      }
+      html += '</div>';
+
       var others = room.players.filter(function(p){ return p.id!==room.hostId; });
       html += '<div class="adm-section">'+
         '<div class="adm-section-title">Transferir Anfitrião</div>';
@@ -196,6 +233,16 @@
       html += '</div>';
 
       contentEl.innerHTML = html;
+
+      var zoomBtn = contentEl.querySelector('#adm-zoom-sync-btn');
+      if(zoomBtn){
+        zoomBtn.addEventListener('click', function(){
+          if(typeof window.boardSetZoomSync === 'function'){
+            window.boardSetZoomSync(!zoomSynced);
+          }
+        });
+      }
+
 
       var revealBtn = contentEl.querySelector('#adm-reveal-btn');
       if(revealBtn){ revealBtn.addEventListener('click', doReveal); }

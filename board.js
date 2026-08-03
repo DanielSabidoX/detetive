@@ -224,6 +224,13 @@
       '</div>'+
       '<div class="tab-body">'+
         '<div class="tab-status">Sem sala ativa</div>'+
+        '<div class="tab-admin" hidden>'+
+          '<label class="tab-sync-toggle">'+
+            '<input type="checkbox" class="tab-sync-check">'+
+            '<span>Zoom sincronizado para todos</span>'+
+          '</label>'+
+        '</div>'+
+        '<div class="tab-sync-note" hidden>Zoom sincronizado com todos os jogadores</div>'+
         '<div class="tab-board-wrap"></div>'+
         '<div class="tab-legend"></div>'+
       
@@ -233,6 +240,9 @@
     var toggleBtn = host.querySelector('.tab-toggle');
     var body      = host.querySelector('.tab-body');
     var statusEl  = host.querySelector('.tab-status');
+    var adminEl   = host.querySelector('.tab-admin');
+    var syncCheck = host.querySelector('.tab-sync-check');
+    var syncNote  = host.querySelector('.tab-sync-note');
     var boardWrap = host.querySelector('.tab-board-wrap');
     var legendEl  = host.querySelector('.tab-legend');
 
@@ -309,14 +319,73 @@
       }
     }catch(e){}
 
+    // ---------- zoom sincronizado entre jogadores (ligado/desligado no painel do anfitrião) ----------
+    var zoomSyncOn = false;      // valor vindo do Firestore (vale para todos)
+    var isHost = false;          // este jogador é o anfitrião?
+    var applyingRemote = false;  // evita eco: não republicar o que acabou de chegar
+    var pushTimer = null;
+    var CLIENT_ID = 'c' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+
     function clampZoom(z){ return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z)); }
     function saveZoom(){
       try{ localStorage.setItem(ZOOM_KEY, JSON.stringify({zoom:zoom, panX:panX, panY:panY})); }catch(e){}
     }
+    function pushView(){
+      if(!zoomSyncOn || applyingRemote) return;
+      if(!roomCode || typeof db === 'undefined') return;
+      var payload = { zoom:zoom, panX:panX, panY:panY, by:CLIENT_ID, at:Date.now() };
+      db.collection('board_positions').doc(roomCode)
+        .set({ view: payload }, {merge:true})
+        .catch(function(err){
+          console.warn('[tabuleiro] não foi possível sincronizar o zoom:', err && err.code, err && err.message);
+        });
+    }
+    function scheduleSync(){
+      if(!zoomSyncOn || applyingRemote) return;
+      if(pushTimer) clearTimeout(pushTimer);
+      pushTimer = setTimeout(function(){ pushTimer = null; pushView(); }, 120);
+    }
+    function applyRemoteView(v){
+      if(!v || typeof v.zoom !== 'number') return;
+      if(v.by === CLIENT_ID) return;              // é o meu próprio movimento voltando
+      applyingRemote = true;
+      zoom = clampZoom(v.zoom);
+      panX = v.panX || 0; panY = v.panY || 0;
+      applyTransform();
+      saveZoom();
+      applyingRemote = false;
+    }
+    function setZoomSyncEnabled(on){
+      if(!roomCode || typeof db === 'undefined') return;
+      var data = { zoomSync: { enabled: !!on, at: Date.now() } };
+      if(on) data.view = { zoom:zoom, panX:panX, panY:panY, by:CLIENT_ID, at:Date.now() };
+      db.collection('board_positions').doc(roomCode).set(data, {merge:true})
+        .catch(function(err){
+          console.warn('[tabuleiro] não foi possível alterar o zoom sincronizado:', err && err.code, err && err.message);
+        });
+    }
+    function renderSyncUi(){
+      if(adminEl) adminEl.hidden = !(isHost && roomCode);
+      if(syncCheck) syncCheck.checked = !!zoomSyncOn;
+      if(syncNote) syncNote.hidden = !(zoomSyncOn && roomCode);
+      // avisa o painel do anfitrião (admin.js) pra ele atualizar o botão dele
+      try{
+        window.dispatchEvent(new CustomEvent('board-zoom-sync-changed', {
+          detail: { enabled: !!zoomSyncOn, room: roomCode }
+        }));
+      }catch(e){}
+    }
+    if(syncCheck){
+      syncCheck.addEventListener('change', function(){
+        setZoomSyncEnabled(syncCheck.checked);
+      });
+    }
+
     function applyTransform(){
       if(!boardEl) return;
       boardEl.style.transformOrigin = '0 0';
       boardEl.style.transform = 'translate('+panX+'px,'+panY+'px) scale('+zoom+')';
+      scheduleSync();
     }
     function zoomAt(px, py, nextZoom){
       nextZoom = clampZoom(nextZoom);
@@ -875,12 +944,25 @@
       renderWeapons();
     }
 
+    // Quem é o anfitrião: aceita os formatos mais comuns do room/session
+    function detectHost(roomData){
+      var me = getSession();
+      if(me && (me.isHost === true || me.host === true || me.role === 'host')) return true;
+      if(!me || !me.pid || !roomData) return false;
+      var hostId = roomData.hostId || roomData.host || roomData.ownerId || roomData.owner ||
+        (roomData.players && roomData.players[0] && roomData.players[0].id);
+      if(hostId && typeof hostId === 'object') hostId = hostId.id;
+      return !!hostId && hostId === me.pid;
+    }
+
     function listenRoom(code){
       if(unsubRoomRead){ unsubRoomRead(); unsubRoomRead=null; }
       if(!code || typeof db === 'undefined'){ return; }
       unsubRoomRead = db.collection('rooms').doc(code).onSnapshot(function(snap){
         var d = snap.exists ? snap.data() : null;
         players = (d && d.players) ? d.players : [];
+        isHost = detectHost(d);
+        renderSyncUi();
         fullRender();
       }, function(err){
         console.warn('[tabuleiro] falha ao ler jogadores da sala:', err && err.code, err && err.message);
@@ -894,6 +976,16 @@
         var d = snap.exists ? snap.data() : null;
         pawns = (d && d.pawns) ? d.pawns : {};
         weapons = (d && d.weapons) ? d.weapons : {};
+
+        var wasOn = zoomSyncOn;
+        zoomSyncOn = !!(d && d.zoomSync && d.zoomSync.enabled);
+        renderSyncUi();
+        if(zoomSyncOn){
+          // com a opção ligada, o zoom de qualquer jogador vale para todos
+          applyRemoteView(d && d.view);
+          if(!wasOn) pushView(); // ao ligar, publica a visão atual
+        }
+
         renderPawns();
         renderWeapons();
       }, function(err){
@@ -907,6 +999,7 @@
       statusEl.classList.add('on');
       boardWrap.style.display = '';
       legendEl.style.display = '';
+      renderSyncUi();
       listenRoom(code);
       listenBoard(code);
     }
@@ -914,6 +1007,8 @@
     function deactivate(){
       roomCode = null;
       players = []; pawns = {}; weapons = {};
+      isHost = false; zoomSyncOn = false;
+      if(pushTimer){ clearTimeout(pushTimer); pushTimer = null; }
       if(unsubRoomRead){ unsubRoomRead(); unsubRoomRead=null; }
       if(unsubBoard){ unsubBoard(); unsubBoard=null; }
       statusEl.textContent = 'Sem sala ativa';
@@ -921,6 +1016,7 @@
       boardWrap.innerHTML = '<div class="tab-empty">Entre em uma sala para ver o tabuleiro.</div>';
       boardEl = null; viewportEl = null;
       legendEl.innerHTML = '';
+      renderSyncUi();
     }
 
     function checkSession(){
@@ -930,6 +1026,14 @@
         if(code) activate(code); else deactivate();
       }
     }
+
+    // API opcional para o seu painel admin/anfitrião no main.js:
+    //   boardSetZoomSync(true|false)  -> liga/desliga o zoom sincronizado
+    //   boardIsZoomSynced()           -> estado atual
+    //   boardForceHostControls(true)  -> mostra o controle mesmo se a detecção de anfitrião falhar
+    window.boardSetZoomSync = function(on){ setZoomSyncEnabled(!!on); };
+    window.boardIsZoomSynced = function(){ return !!zoomSyncOn; };
+    window.boardForceHostControls = function(on){ isHost = !!on; renderSyncUi(); };
 
     deactivate();
     checkSession();
