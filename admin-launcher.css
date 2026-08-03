@@ -1,0 +1,32 @@
+/* ===== Ícone de acesso ao Painel Administrativo =====
+   Arquivo isolado, independente do main.js.
+   Uso: <link rel="stylesheet" href="admin-launcher.css"> */
+#admin-launcher{
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 9995;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(20,16,12,.85);
+  border: 1px solid rgba(212,175,102,.45);
+  color: var(--gold-bright, #d9a44f);
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,.4);
+  transition: background .15s ease, transform .1s ease;
+}
+#admin-launcher:hover{
+  background: var(--gold, #b8863b);
+  color:#1a1509;
+  transform: scale(1.06);
+}
+#admin-launcher svg{ width:17px; height:17px; fill:currentColor; }
+
+@media (max-width: 640px){
+  #admin-launcher{ top: 8px; left: 8px; width: 30px; height: 30px; }
+  #admin-launcher svg{ width:15px; height:15px; }
+}
