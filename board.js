@@ -324,6 +324,8 @@
     var isHost = false;          // este jogador é o anfitrião?
     var applyingRemote = false;  // evita eco: não republicar o que acabou de chegar
     var pushTimer = null;
+    var focusLockUntil = 0;      // enquanto ativo, o zoom automático manda
+    var focusAtLocal = 0;        // instante do último enquadramento automático local
     var CLIENT_ID = 'c' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 
     function clampZoom(z){ return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z)); }
@@ -348,6 +350,9 @@
     function applyRemoteView(v){
       if(!v || typeof v.zoom !== 'number') return;
       if(v.by === CLIENT_ID) return;              // é o meu próprio movimento voltando
+      // o zoom automático do palpite/acusação tem prioridade por alguns instantes
+      if(Date.now() - focusLockUntil < 0) return;
+      if(v.at && v.at < focusAtLocal) return;
       applyingRemote = true;
       zoom = clampZoom(v.zoom);
       panX = v.panX || 0; panY = v.panY || 0;
@@ -396,6 +401,39 @@
       zoom = nextZoom;
       applyTransform();
       saveZoom();
+    }
+    // ===== Zoom automático na sala do palpite/acusação =====
+    // Enquadra o bloco da sala + PAD casas ao redor. Vale para todos os
+    // jogadores e independe do "zoom sincronizado" do anfitrião.
+    var FOCUS_PAD = 2; // casas visíveis ao redor da sala
+    function focusRoom(room){
+      if(!room || !boardEl || !boardWrap) return;
+      var step = cellPx + GAP_PX;
+      var x0 = (room.c0 - 1 - FOCUS_PAD) * step;
+      var y0 = (room.r0 - 1 - FOCUS_PAD) * step;
+      var w  = (BLOCK + FOCUS_PAD*2) * step;
+      var h  = (BLOCK + FOCUS_PAD*2) * step;
+      var rect = boardWrap.getBoundingClientRect();
+      var vw = rect.width || boardWrap.clientWidth || 0;
+      var vh = rect.height || boardWrap.clientHeight || 0;
+      if(!vw || !vh || !w || !h) return;
+      var z = clampZoom(Math.min(vw / w, vh / h));
+      // o zoom automático prevalece sobre o zoom sincronizado por alguns segundos
+      focusAtLocal = Date.now();
+      focusLockUntil = focusAtLocal + 4000;
+      applyingRemote = false;
+      zoom = z;
+      panX = vw/2 - (x0 + w/2) * z;
+      panY = vh/2 - (y0 + h/2) * z;
+      applyTransform();
+      saveZoom();
+      if(zoomSyncOn) pushView(); // mantém todos alinhados quando a sincronia está ligada
+    }
+    function focusRoomByName(name){
+      var room = findRoomByName(name);
+      if(!room) return;
+      // espera o render das peças pra garantir cellPx atualizado
+      setTimeout(function(){ focusRoom(room); }, 0);
     }
     function setupZoomPan(){
       applyTransform();
@@ -452,6 +490,7 @@
 
     var unsubRoomRead = null;
     var unsubBoard = null;
+    var lastFocusAt = null;   // último palpite/acusação já enquadrado
 
     function suspectColor(idx){
       var name = SUSPECTS[idx];
@@ -935,7 +974,20 @@
       }
       renderPawns();
       renderWeapons();
+      // zoom automático na sala do palpite/acusação (local + avisa os outros)
+      focusRoom(room);
+      publishFocus(room.name);
     };
+    // publica o "foco" numa chave própria do documento do tabuleiro.
+    // Não mexe em pawns/weapons/view/zoomSync — nada mais é afetado.
+    function publishFocus(roomName){
+      if(!roomCode || typeof db === 'undefined') return;
+      db.collection('board_positions').doc(roomCode)
+        .set({ focus: { room: roomName, at: Date.now(), by: CLIENT_ID } }, {merge:true})
+        .catch(function(err){
+          console.warn('[tabuleiro] não foi possível avisar o zoom automático:', err && err.code, err && err.message);
+        });
+    }
 
     function fullRender(){
       buildBoardSkeleton();
@@ -988,6 +1040,15 @@
 
         renderPawns();
         renderWeapons();
+
+        // zoom automático quando qualquer jogador faz palpite/acusação
+        var f = d && d.focus;
+        if(f && f.room && f.at && f.at !== lastFocusAt){
+          var first = (lastFocusAt === null);
+          lastFocusAt = f.at;
+          // não re-enquadra ao entrar na sala nem para quem já enquadrou localmente
+          if(!first && f.by !== CLIENT_ID) focusRoomByName(f.room);
+        }
       }, function(err){
         console.warn('[tabuleiro] falha ao sincronizar peões:', err && err.code, err && err.message);
       });
@@ -1007,7 +1068,7 @@
     function deactivate(){
       roomCode = null;
       players = []; pawns = {}; weapons = {};
-      isHost = false; zoomSyncOn = false;
+      isHost = false; zoomSyncOn = false; lastFocusAt = null;
       if(pushTimer){ clearTimeout(pushTimer); pushTimer = null; }
       if(unsubRoomRead){ unsubRoomRead(); unsubRoomRead=null; }
       if(unsubBoard){ unsubBoard(); unsubBoard=null; }
