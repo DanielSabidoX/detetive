@@ -176,3 +176,44 @@
 @media (max-width: 640px){
   #tabuleiro-painel{ width: 300px; top: 70px; left: 10px; }
 }
+
+
+/* ===== Zoom e arrasto do mapa (estilo Google Maps) ===== */
+#tabuleiro-painel .tab-board-wrap{
+  position: relative;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+#tabuleiro-painel .tab-viewport{
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  cursor: grab;
+  background: #000;
+}
+#tabuleiro-painel .tab-board-wrap.panning .tab-viewport{ cursor: grabbing; }
+#tabuleiro-painel .tab-viewport .tab-board{
+  position: absolute;
+  top: 0; left: 0;
+  margin: 0;
+  will-change: transform;
+}
+#tabuleiro-painel .tab-zoom-controls{
+  position: absolute;
+  right: 8px; bottom: 8px;
+  display: flex; flex-direction: column; gap: 4px;
+  z-index: 30;
+}
+#tabuleiro-painel .tab-zoom-controls button{
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20,16,12,.92);
+  border: 1px solid var(--gold,#b8863b);
+  color: var(--gold-bright,#d9a44f);
+  font-family: 'Oswald', sans-serif; font-size: 15px; line-height: 1;
+  border-radius: 4px; cursor: pointer; padding: 0;
+}
+#tabuleiro-painel .tab-zoom-controls button:hover{
+  background: var(--gold,#b8863b); color: #1a1509;
+}

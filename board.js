@@ -294,6 +294,92 @@
     var GAP_PX = 1;         // precisa bater com o "gap" definido em .tab-board no CSS
     var draggingPawnId = null;
     var boardEl = null;
+    var viewportEl = null;
+
+    // ---------- zoom/pan estilo Google Maps ----------
+    var ZOOM_KEY = 'casoArquivado_tabuleiro_zoom_v1';
+    var MIN_ZOOM = 0.5, MAX_ZOOM = 6;
+    var zoom = 1, panX = 0, panY = 0;
+    var zoomWired = false;
+    try{
+      var savedZoom = JSON.parse(localStorage.getItem(ZOOM_KEY));
+      if(savedZoom && typeof savedZoom.zoom === 'number'){
+        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, savedZoom.zoom));
+        panX = savedZoom.panX || 0; panY = savedZoom.panY || 0;
+      }
+    }catch(e){}
+
+    function clampZoom(z){ return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z)); }
+    function saveZoom(){
+      try{ localStorage.setItem(ZOOM_KEY, JSON.stringify({zoom:zoom, panX:panX, panY:panY})); }catch(e){}
+    }
+    function applyTransform(){
+      if(!boardEl) return;
+      boardEl.style.transformOrigin = '0 0';
+      boardEl.style.transform = 'translate('+panX+'px,'+panY+'px) scale('+zoom+')';
+    }
+    function zoomAt(px, py, nextZoom){
+      nextZoom = clampZoom(nextZoom);
+      if(nextZoom === zoom) return;
+      var k = nextZoom / zoom;
+      panX = px - (px - panX) * k;
+      panY = py - (py - panY) * k;
+      zoom = nextZoom;
+      applyTransform();
+      saveZoom();
+    }
+    function setupZoomPan(){
+      applyTransform();
+      if(zoomWired || !viewportEl) return;
+      zoomWired = true;
+
+      // roda do mouse / pinça do trackpad -> zoom ancorado no cursor
+      boardWrap.addEventListener('wheel', function(e){
+        if(!boardEl) return;
+        e.preventDefault();
+        var dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
+        var rect = boardWrap.getBoundingClientRect();
+        zoomAt(e.clientX - rect.left, e.clientY - rect.top, zoom * Math.exp(-dy * 0.0018));
+      }, { passive:false });
+
+      // arrastar o mapa com o mouse (as peças param a propagação, então continuam arrastáveis)
+      var panning = false, sx = 0, sy = 0, spx = 0, spy = 0, pid = null;
+      boardWrap.addEventListener('pointerdown', function(e){
+        if(!boardEl) return;
+        if(e.button !== 0 && e.pointerType === 'mouse') return;
+        if(e.target.closest && e.target.closest('.tab-zoom-controls')) return;
+        panning = true; pid = e.pointerId;
+        sx = e.clientX; sy = e.clientY; spx = panX; spy = panY;
+        boardWrap.classList.add('panning');
+        boardWrap.setPointerCapture && boardWrap.setPointerCapture(e.pointerId);
+      });
+      boardWrap.addEventListener('pointermove', function(e){
+        if(!panning || e.pointerId !== pid) return;
+        panX = spx + (e.clientX - sx);
+        panY = spy + (e.clientY - sy);
+        applyTransform();
+      });
+      function endPan(e){
+        if(!panning) return;
+        panning = false; pid = null;
+        boardWrap.classList.remove('panning');
+        saveZoom();
+      }
+      boardWrap.addEventListener('pointerup', endPan);
+      boardWrap.addEventListener('pointercancel', endPan);
+
+      // botões + / - / enquadrar
+      boardWrap.addEventListener('click', function(e){
+        var btn = e.target.closest && e.target.closest('[data-zoom]');
+        if(!btn || !boardEl) return;
+        var rect = boardWrap.getBoundingClientRect();
+        var cx = rect.width/2, cy = rect.height/2;
+        var act = btn.dataset.zoom;
+        if(act === 'in') zoomAt(cx, cy, zoom * 1.3);
+        else if(act === 'out') zoomAt(cx, cy, zoom / 1.3);
+        else { zoom = 1; panX = 0; panY = 0; applyTransform(); saveZoom(); }
+      });
+    }
 
     var unsubRoomRead = null;
     var unsubBoard = null;
@@ -410,7 +496,16 @@
     }
 
     function buildBoardSkeleton(){
-      boardWrap.innerHTML = '<div class="tab-board" id="tab-board-el"></div>';
+      boardWrap.innerHTML =
+        '<div class="tab-viewport" id="tab-viewport-el">'+
+          '<div class="tab-board" id="tab-board-el"></div>'+
+          '<div class="tab-zoom-controls">'+
+            '<button type="button" data-zoom="in" title="Aproximar">+</button>'+
+            '<button type="button" data-zoom="out" title="Afastar">\u2212</button>'+
+            '<button type="button" data-zoom="reset" title="Enquadrar">\u2302</button>'+
+          '</div>'+
+        '</div>';
+      viewportEl = boardWrap.querySelector('#tab-viewport-el');
       boardEl = boardWrap.querySelector('#tab-board-el');
 
       // tamanho de célula responsivo ao container (descontando o espaço do "gap" entre células)
@@ -422,6 +517,8 @@
       boardEl.style.gridTemplateRows = 'repeat('+SIZE+', '+cellPx+'px)';
       boardEl.style.width = (cellPx*SIZE + totalGap)+'px';
       boardEl.style.height = (cellPx*SIZE + totalGap)+'px';
+      viewportEl.style.height = (cellPx*SIZE + totalGap)+'px';
+      setupZoomPan();
 
       var frag = document.createDocumentFragment();
       var renderedRoom = {}; // evita desenhar a mesma sala 9x (uma vez por bloco)
@@ -624,8 +721,8 @@
         draggingPawnId = slug;
         el.classList.add('dragging');
         var boardRect = boardEl.getBoundingClientRect();
-        offX = e.clientX - boardRect.left - parseFloat(el.style.left);
-        offY = e.clientY - boardRect.top - parseFloat(el.style.top);
+        offX = (e.clientX - boardRect.left)/zoom - parseFloat(el.style.left);
+        offY = (e.clientY - boardRect.top)/zoom - parseFloat(el.style.top);
         lastCell = { row: parseInt(el.dataset.row,10) || 1, col: parseInt(el.dataset.col,10) || 1 };
         el.setPointerCapture && el.setPointerCapture(e.pointerId);
       });
@@ -633,14 +730,14 @@
       el.addEventListener('pointermove', function(e){
         if(!dragging) return;
         var boardRect = boardEl.getBoundingClientRect();
-        var x = e.clientX - boardRect.left - offX;
-        var y = e.clientY - boardRect.top - offY;
+        var x = (e.clientX - boardRect.left)/zoom - offX;
+        var y = (e.clientY - boardRect.top)/zoom - offY;
         el.style.left = x+'px';
         el.style.top  = y+'px';
 
         // a célula-alvo vem da posição do CURSOR (é o que o jogador aponta),
         // nunca da posição visual da peça (que pode ter deslocamento de empilhamento)
-        var pc = pxToCell(e.clientX - boardRect.left, e.clientY - boardRect.top);
+        var pc = pxToCell((e.clientX - boardRect.left)/zoom, (e.clientY - boardRect.top)/zoom);
         var cellIdx = clampCell(pc.row, pc.col);
         var col = cellIdx.col, row = cellIdx.row;
         lastCell = { row: row, col: col };
@@ -822,6 +919,7 @@
       statusEl.textContent = 'Sem sala ativa';
       statusEl.classList.remove('on');
       boardWrap.innerHTML = '<div class="tab-empty">Entre em uma sala para ver o tabuleiro.</div>';
+      boardEl = null; viewportEl = null;
       legendEl.innerHTML = '';
     }
 
