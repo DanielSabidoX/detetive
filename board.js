@@ -29,6 +29,65 @@
   // ---- Os 6 suspeitos do jogo original — precisa bater com o SUSPEITOS do main.js ----
   var SUSPECTS = ["Prof. Black","Srta. Rosa","Cel. Mostarda","Dona Branca","Sr. Marinho","Dona Violeta"];
 
+  // ---- As 6 armas do jogo — figuras SVG, todas em cinza ----
+  var WEAPON_COLOR = '#FFF';       // armas
+  var WEAPON_STROKE = '#000';      // contorno
+  var WEAPONS = [
+    { name:'Revolver',      label:'Revólver' },
+    { name:'Punhal',        label:'Punhal' },
+    { name:'Corda',         label:'Corda' },
+    { name:'Castical',      label:'Castiçal' },
+    { name:'Chave Inglesa', label:'Chave inglesa' },
+    { name:'Cano de Chumbo',label:'Cano de chumbo' }
+  ];
+
+  // cada arma tem seu próprio desenho vetorial (24x24)
+  var WEAPON_SVG = {
+    'revolver':
+      '<path d="M3 9h12l2 3h4v2h-3l-1 2h-4l-1-2H8l-2 4H3l1.6-4H3z"/>'+
+      '<circle cx="9" cy="11" r="2.1"/>',
+    'punhal':
+      '<path d="M12 2l2 9h-4l2-9z"/>'+
+      '<path d="M7 11h10v2H7z"/>'+
+      '<path d="M11 13h2v8h-2z"/>',
+    'corda':
+      '<path d="M6 4c5 0 5 4 0 4s-5 4 0 4 5 4 0 4" />'+
+      '<path d="M14 4c5 0 5 4 0 4s-5 4 0 4 5 4 0 4" />',
+    'castical':
+      '<path d="M11 3h2v4h-2z"/>'+
+      '<path d="M10 7h4v9h-4z"/>'+
+      '<path d="M7 20h10v2H7z"/>'+
+      '<path d="M9 18h6v2H9z"/>',
+    'chave-inglesa':
+      '<path d="M17 3a5 5 0 00-4.6 7L4 18.4 6.6 21l8.4-8.4A5 5 0 1017 3zm0 2.2a2.8 2.8 0 11-.01 5.61A2.8 2.8 0 0117 5.2z"/>',
+    'cano-de-chumbo':
+      '<path d="M4 10h11a4 4 0 014 4v6h-2.4v-6a1.6 1.6 0 00-1.6-1.6H4z"/>'+
+      '<path d="M2 9.2h3v3.6H2z"/>'
+  };
+
+  function weaponSvg(slug){
+    var body = WEAPON_SVG[slug] || '<circle cx="12" cy="12" r="7"/>';
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" '+
+           'fill="'+WEAPON_COLOR+'" stroke="'+WEAPON_STROKE+'" stroke-width="0.8" '+
+           'stroke-linecap="round" stroke-linejoin="round">'+body+'</svg>';
+  }
+
+  // estilos das armas injetados aqui pra não depender de mudanças no board.css
+  (function injectWeaponStyles(){
+    if(document.getElementById('tab-weapon-styles')) return;
+    var st = document.createElement('style');
+    st.id = 'tab-weapon-styles';
+    st.textContent =
+      '.tab-weapon{position:absolute;transform:translate(-50%,-50%);width:20px;height:20px;'+
+      'display:flex;align-items:center;justify-content:center;border-radius:5px;'+
+      'background:rgba(20,22,26,.55);border:1px solid '+WEAPON_STROKE+';box-sizing:border-box;'+
+      'cursor:grab;touch-action:none;z-index:6;padding:1px}'+
+      '.tab-weapon svg{width:100%;height:100%;display:block;pointer-events:none}'+
+      '.tab-weapon.dragging{cursor:grabbing;z-index:20;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}'+
+      '.tab-legend-weapon svg{width:14px;height:14px;vertical-align:-3px;margin-right:4px}';
+    document.head.appendChild(st);
+  })();
+
   function slugify(s){
     return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
   }
@@ -127,13 +186,28 @@
     c = Math.max(1, Math.min(SIZE, Math.round(c)));
     return {row:r, col:c};
   }
-  // se caiu dentro de uma sala, "gruda" no ponto âncora dela
+  // ---- Interior das salas: 9 "casas" (grade 3x3) dentro do bloco da sala ----
+  // As casas usadas são as linhas r0+1..r0+3 e colunas c0+1..c0+3, ou seja,
+  // sempre dentro da sala e nunca em cima das portas.
+  function roomInteriorCell(room, si, sj){
+    return { row: room.r0 + 1 + si, col: room.c0 + 1 + sj };
+  }
+  function roomSlotIndex(room, row, col){
+    var si = Math.max(0, Math.min(2, row - room.r0 - 1));
+    var sj = Math.max(0, Math.min(2, col - room.c0 - 1));
+    return { si: si, sj: sj };
+  }
+  // se caiu dentro de uma sala, "gruda" na casa interna mais próxima (3x3)
   function snapCell(r,c){
     var cell = clampCell(r,c);
     var room = roomAt(cell.row, cell.col);
-    if(room) return {row:room.anchorRow, col:room.anchorCol};
+    if(room){
+      var s = roomSlotIndex(room, cell.row, cell.col);
+      return roomInteriorCell(room, s.si, s.sj);
+    }
     return cell;
   }
+
 
   function getSession(){
     try{ return JSON.parse(localStorage.getItem(SESSION_KEY)) || null; }catch(e){ return null; }
@@ -152,7 +226,7 @@
         '<div class="tab-status">Sem sala ativa</div>'+
         '<div class="tab-board-wrap"></div>'+
         '<div class="tab-legend"></div>'+
-        '<div class="tab-hint">Sempre 6 peões (um por suspeito). Os sem jogador aparecem tracejados — arraste qualquer peão para mover, inclusive os sem dono ou os de outros jogadores.</div>'+
+      
       '</div>';
 
     var handle    = host.querySelector('.tab-handle');
@@ -215,6 +289,7 @@
     var roomCode = null;
     var players = [];       // [{id,name,eliminated}]
     var pawns = {};         // playerId -> {row,col}
+    var weapons = {};       // weaponSlug -> {row,col}
     var cellPx = 26;        // recalculado a cada render
     var GAP_PX = 1;         // precisa bater com o "gap" definido em .tab-board no CSS
     var draggingPawnId = null;
@@ -299,14 +374,49 @@
       return map[slug] || {row:SIZE, col:Math.min(SIZE-1, Math.max(2, 2 + (idx*2) % (SIZE-2)))};
     }
 
+    // Armas: NÃO ficam soltas pelo corredor. Cada arma começa DENTRO de uma sala,
+    // uma arma por sala (nunca duas na mesma). Quais salas recebem arma é
+    // derivado do código da sala, então todos os jogadores veem o mesmo.
+    var weaponSpawnCache = {};
+    function weaponSpawnMap(){
+      var key = (roomCode || '_sem-sala') + '|armas';
+      if(weaponSpawnCache[key]) return weaponSpawnCache[key];
+
+      // embaralhamento determinístico (Fisher-Yates com o seed do código da sala)
+      var order = ROOM_META.rooms.map(function(_, i){ return i; });
+      var seed = seedFrom(key);
+      for(var i = order.length - 1; i > 0; i--){
+        seed = nextRand(seed);
+        var j = seed % (i + 1);
+        var tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+      }
+
+      var map = {};
+      WEAPONS.forEach(function(w, idx){
+        var room = ROOM_META.rooms[order[idx % order.length]];
+        // cai numa das 9 casas internas da sala (sorteada, nunca na borda/porta)
+        seed = nextRand(seed);
+        var slot = seed % 9;
+        var cell = roomInteriorCell(room, Math.floor(slot/3), slot % 3);
+        map[slugify(w.name)] = cell;
+      });
+      weaponSpawnCache[key] = map;
+      return map;
+    }
+    function defaultWeaponSpawn(slug){
+      var map = weaponSpawnMap();
+      if(map[slug]) return map[slug];
+      return roomInteriorCell(ROOM_META.rooms[0], 1, 1);
+    }
+
     function buildBoardSkeleton(){
       boardWrap.innerHTML = '<div class="tab-board" id="tab-board-el"></div>';
       boardEl = boardWrap.querySelector('#tab-board-el');
 
       // tamanho de célula responsivo ao container (descontando o espaço do "gap" entre células)
-      var wrapWidth = boardWrap.clientWidth || 340;
+      var wrapWidth = boardWrap.clientWidth || 400;
       var totalGap = (SIZE-1) * GAP_PX;
-      cellPx = Math.max(14, Math.floor((wrapWidth - totalGap) / SIZE));
+      cellPx = Math.max(18, Math.floor((wrapWidth - totalGap) / SIZE));
 
       boardEl.style.gridTemplateColumns = 'repeat('+SIZE+', '+cellPx+'px)';
       boardEl.style.gridTemplateRows = 'repeat('+SIZE+', '+cellPx+'px)';
@@ -360,6 +470,20 @@
       var step = cellPx + GAP_PX;
       return { x: (col-1)*step + cellPx/2, y: (row-1)*step + cellPx/2 };
     }
+    // posição de uma peça: fora das salas é o centro da célula; dentro da sala
+    // é uma das 9 casas internas, distribuídas em grade 3x3 dentro do bloco
+    // (bem afastadas das bordas/portas).
+    function pieceCenterPx(row, col){
+      var room = roomAt(row, col);
+      if(!room) return cellCenterPx(row, col);
+      var step = cellPx + GAP_PX;
+      var blockW = BLOCK*cellPx + (BLOCK-1)*GAP_PX;
+      var left = (room.c0-1)*step, top = (room.r0-1)*step;
+      var s = roomSlotIndex(room, row, col);
+      var fx = [0.22, 0.50, 0.78][s.sj];
+      var fy = [0.34, 0.58, 0.82][s.si]; // primeira linha mais baixa por causa do nome da sala
+      return { x: left + blockW*fx, y: top + blockW*fy };
+    }
     // caminho inverso: de um pixel (x,y) pra qual célula (row/col) ele corresponde
     function pxToCell(x, y){
       var step = cellPx + GAP_PX;
@@ -381,6 +505,38 @@
           label+
         '</span>';
       }).join('');
+      // as armas não entram na legenda (ficam só no tabuleiro)
+    }
+
+    function renderWeapons(){
+      if(!boardEl) return;
+      var old = boardEl.querySelectorAll('.tab-weapon');
+      for(var i=0;i<old.length;i++){ old[i].remove(); }
+
+      var byCell = {};
+      WEAPONS.forEach(function(w){
+        var slug = slugify(w.name);
+        var pos = weapons[slug] || defaultWeaponSpawn(slug);
+        var key = pos.row+','+pos.col;
+        (byCell[key] = byCell[key]||[]).push({w:w, slug:slug, pos:pos});
+      });
+
+      Object.keys(byCell).forEach(function(key){
+        var group = byCell[key];
+        group.forEach(function(item, gi){
+          var center = pieceCenterPx(item.pos.row, item.pos.col);
+          var spread = group.length>1 ? (gi - (group.length-1)/2) * 10 : 0;
+          var el = document.createElement('div');
+          el.className = 'tab-weapon';
+          el.style.left = (center.x + spread) + 'px';
+          el.style.top  = (center.y + 8) + 'px';
+          el.innerHTML = weaponSvg(item.slug);
+          el.title = item.w.label + ' — arraste para mover';
+          el.dataset.slug = item.slug;
+          attachDrag(el, item.slug, 'weapons');
+          boardEl.appendChild(el);
+        });
+      });
     }
 
     function renderPawns(){
@@ -403,7 +559,7 @@
         var group = byCell[key];
         group.forEach(function(item, gi){
           var slot = item.slot, pos = item.pos;
-          var center = cellCenterPx(pos.row, pos.col);
+          var center = pieceCenterPx(pos.row, pos.col);
           var spread = group.length>1 ? (gi - (group.length-1)/2) * 12 : 0;
 
           var el = document.createElement('div');
@@ -415,7 +571,7 @@
           el.textContent = slot.owner ? playerInitial(slot.owner.name) : '';
           el.title = slot.owner ? (slot.suspectName+' — '+slot.owner.name) : (slot.suspectName+' — sem jogador (mova manualmente)');
           el.dataset.slug = slot.slug;
-          attachPawnDrag(el, slot.slug);
+          attachDrag(el, slot.slug, 'pawns');
           boardEl.appendChild(el);
         });
       });
@@ -426,7 +582,7 @@
       for(var i=0;i<hl.length;i++){ hl[i].classList.remove('drop-hover'); }
     }
 
-    function attachPawnDrag(el, slug){
+    function attachDrag(el, slug, kind){
       var dragging=false, offX=0, offY=0;
 
       el.addEventListener('pointerdown', function(e){
@@ -475,27 +631,33 @@
         var cellIdx = pxToCell(x, y);
         var snapped = snapCell(cellIdx.row, cellIdx.col);
 
-        pawns[slug] = {row:snapped.row, col:snapped.col};
-        renderPawns();
-        savePawnPosition(slug, snapped.row, snapped.col);
+        if(kind === 'weapons'){
+          weapons[slug] = {row:snapped.row, col:snapped.col};
+          renderWeapons();
+        } else {
+          pawns[slug] = {row:snapped.row, col:snapped.col};
+          renderPawns();
+        }
+        savePosition(kind, slug, snapped.row, snapped.col);
       }
       el.addEventListener('pointerup', finish);
       el.addEventListener('pointercancel', finish);
     }
 
-    function savePawnPosition(slug, row, col){
+    function savePosition(kind, slug, row, col){
       if(!roomCode || typeof db === 'undefined') return;
       var ref = db.collection('board_positions').doc(roomCode);
       var value = {row:row, col:col, at: Date.now()};
       var dotField = {};
-      dotField['pawns.'+slug] = value;
+      dotField[kind+'.'+slug] = value;
       // update() interpreta "pawns.<slug>" como caminho aninhado corretamente.
       ref.update(dotField).catch(function(err){
         // Se o documento ainda não existe (primeira jogada nesta sala), update() falha.
         // Nesse caso criamos o documento com a estrutura aninhada de verdade.
         if(err && (err.code === 'not-found' || /No document to update/i.test(err.message||''))){
-          var nested = {pawns:{}};
-          nested.pawns[slug] = value;
+          var nested = {};
+          nested[kind] = {};
+          nested[kind][slug] = value;
           ref.set(nested, {merge:true}).catch(function(err2){
             console.warn('[tabuleiro] não foi possível criar a posição do peão:', err2 && err2.code, err2 && err2.message);
           });
@@ -509,6 +671,7 @@
       buildBoardSkeleton();
       renderLegend();
       renderPawns();
+      renderWeapons();
     }
 
     function listenRoom(code){
@@ -529,7 +692,9 @@
       unsubBoard = db.collection('board_positions').doc(code).onSnapshot(function(snap){
         var d = snap.exists ? snap.data() : null;
         pawns = (d && d.pawns) ? d.pawns : {};
+        weapons = (d && d.weapons) ? d.weapons : {};
         renderPawns();
+        renderWeapons();
       }, function(err){
         console.warn('[tabuleiro] falha ao sincronizar peões:', err && err.code, err && err.message);
       });
@@ -547,7 +712,7 @@
 
     function deactivate(){
       roomCode = null;
-      players = []; pawns = {};
+      players = []; pawns = {}; weapons = {};
       if(unsubRoomRead){ unsubRoomRead(); unsubRoomRead=null; }
       if(unsubBoard){ unsubBoard(); unsubBoard=null; }
       statusEl.textContent = 'Sem sala ativa';
