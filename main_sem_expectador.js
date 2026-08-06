@@ -39,7 +39,6 @@ var state = {
   name: '',
   code: '',
   playerId: null,
-  isSpectator: false,
   room: null,
   hand: [],
   notifications: [],
@@ -200,43 +199,30 @@ async function joinRoom(){
       render();
       return;
     }
-    var isPlayer = room.players.some(function(p){return p.id===pid;});
-    var isSpec = (room.spectators||[]).some(function(p){return p.id===pid;});
-    if(!isPlayer && !isSpec){
-      if(room.phase==='lobby'){
-        var updates = {
-          players: fv().arrayUnion({id:pid, name:name, eliminated:false}),
-          log: fv().arrayUnion({text:name+' entrou no caso.', type:'system', ts:nowTs()})
-        };
-        var becameHost = !room.hostId;
-        if(becameHost){
-          updates.hostId = pid;
-          updates.log = fv().arrayUnion(
-            {text:name+' entrou no caso.', type:'system', ts:nowTs()},
-            {text:'👑 '+name+' é o anfitrião da sala.', type:'system', ts:nowTs()}
-          );
-        }
-        await roomsCol().doc(code).update(updates);
-        room = Object.assign({}, room, {
-          players: room.players.concat([{id:pid, name:name, eliminated:false}]),
-          hostId: becameHost ? pid : room.hostId
-        });
-        isPlayer = true;
-      } else if(room.phase==='playing' || room.phase==='ended'){
-        // caso já iniciado: entra apenas como espectador, sem peão, cartas ou ações
-        await roomsCol().doc(code).update({
-          spectators: fv().arrayUnion({id:pid, name:name}),
-          log: fv().arrayUnion({text:'👁 '+name+' entrou como espectador.', type:'system', ts:nowTs()})
-        });
-        room = Object.assign({}, room, {
-          spectators: (room.spectators||[]).concat([{id:pid, name:name}])
-        });
-        isSpec = true;
-      } else {
+    var already = room.players.some(function(p){return p.id===pid;});
+    if(!already){
+      if(room.phase!=='lobby'){
         state.joinError='Esse caso já está em investigação. Peça ao anfitrião para abrir um novo.';
         render();
         return;
       }
+      var updates = {
+        players: fv().arrayUnion({id:pid, name:name, eliminated:false}),
+        log: fv().arrayUnion({text:name+' entrou no caso.', type:'system', ts:nowTs()})
+      };
+      var becameHost = !room.hostId;
+      if(becameHost){
+        updates.hostId = pid;
+        updates.log = fv().arrayUnion(
+          {text:name+' entrou no caso.', type:'system', ts:nowTs()},
+          {text:'👑 '+name+' é o anfitrião da sala.', type:'system', ts:nowTs()}
+        );
+      }
+      await roomsCol().doc(code).update(updates);
+      room = Object.assign({}, room, {
+        players: room.players.concat([{id:pid, name:name, eliminated:false}]),
+        hostId: becameHost ? pid : room.hostId
+      });
     }
   }catch(e){
     state.joinError = 'Não foi possível entrar na sala. Confira sua conexão e as credenciais do Firebase.';
@@ -247,7 +233,6 @@ async function joinRoom(){
   state.code = code;
   state.playerId = pid;
   state.room = room;
-  state.isSpectator = isSpec && !isPlayer;
   state.joinError = '';
   saveSession(code, pid, name);
   attachListeners(code, pid);
@@ -281,8 +266,6 @@ function attachListeners(code, pid){
       return;
     }
     state.room = data;
-    state.isSpectator = !(data.players||[]).some(function(p){return p.id===state.playerId;}) &&
-      (data.spectators||[]).some(function(p){return p.id===state.playerId;});
     if(state.room.phase!=='lobby' && (state.screen==='lobby' || state.screen==='home')){
       state.screen = 'game';
     }
@@ -575,25 +558,6 @@ function pickNewHost(players, excludeId){
 
 async function leaveGame(){
   var room = state.room;
-
-  if(state.isSpectator){
-    if(room){
-      try{
-        var meSpec = (room.spectators||[]).filter(function(p){return p.id===state.playerId;})[0];
-        if(meSpec){
-          await roomsCol().doc(room.code).update({
-            spectators: fv().arrayRemove(meSpec),
-            log: fv().arrayUnion({text:'👁 '+state.name+' saiu do modo espectador.', type:'system', ts:nowTs()})
-          });
-        }
-      }catch(e){
-        console.warn('Não foi possível registrar a saída do espectador:', e);
-      }
-    }
-    goHome();
-    return;
-  }
-
   var me = room && room.players.filter(function(p){return p.id===state.playerId;})[0];
 
   if(room && room.phase==='playing' && me && !me.eliminated){
@@ -677,7 +641,6 @@ function goHome(){
   state.room = null;
   state.code = '';
   state.playerId = null;
-  state.isSpectator = false;
   state.goneReason = '';
   state.notes = buildEmptyNotes();
   render();
@@ -769,15 +732,14 @@ function renderLobby(){
 
 function renderGame(){
   var room = state.room;
-  var isSpectator = !!state.isSpectator;
   var me = room.players.filter(function(p){return p.id===state.playerId;})[0];
   var myTurn = isMyTurn();
   var ended = room.phase==='ended';
 
   var html = '<div class="masthead">'+
-    '<div class="kicker">Caso #'+esc(room.code)+(isSpectator ? ' · Modo Espectador' : '')+'</div>'+
+    '<div class="kicker">Caso #'+esc(room.code)+'</div>'+
     '<h1>DETETIVE</h1>'+
-    (ended ? '' : '<div class="sub">'+(isSpectator ? 'Acompanhando a investigação.' : (myTurn ? 'É a sua vez de agir, detetive.' : 'Vez de: '+esc(currentTurnName())))+'</div>')+
+    (ended ? '' : '<div class="sub">'+(myTurn ? 'É a sua vez de agir, detetive.' : 'Vez de: '+esc(currentTurnName()))+'</div>')+
   '</div>';
 
   if(ended){
@@ -808,21 +770,7 @@ function renderGame(){
     '</div>'+
   '</div>';
 
-  if(room.spectators && room.spectators.length){
-    html += '<div class="panel">'+
-      '<div class="section-title"><h2>Espectadores ('+room.spectators.length+')</h2>'+
-        (isSpectator && !ended ? '<button class="small" onclick="__actions.leaveGame()">Sair</button>' : '')+
-      '</div>'+
-      '<div class="players-list">'+
-        room.spectators.map(function(p){
-          var cls = 'player-row'+(p.id===state.playerId?' you':'');
-          return '<div class="'+cls+'"><span>👁 '+esc(p.name)+(p.id===state.playerId?' (você)':'')+'</span></div>';
-        }).join('')+
-      '</div>'+
-    '</div>';
-  }
-
-  if(!ended && !isSpectator){
+  if(!ended){
     html += '<div class="panel">'+
       '<div class="section-title"><h2>Suas Cartas</h2></div>'+
       '<div class="hand">'+
@@ -1033,9 +981,8 @@ async function init(){
       render();
       return;
     }
-    var stillInPlayers = room.players.some(function(p){ return p.id===session.pid; });
-    var stillInSpectators = (room.spectators||[]).some(function(p){ return p.id===session.pid; });
-    if(!stillInPlayers && !stillInSpectators){
+    var stillIn = room.players.some(function(p){ return p.id===session.pid; });
+    if(!stillIn){
       clearSession();
       render();
       return;
@@ -1044,7 +991,6 @@ async function init(){
     state.code = session.code;
     state.playerId = session.pid;
     state.room = room;
-    state.isSpectator = !stillInPlayers && stillInSpectators;
     attachListeners(session.code, session.pid);
     state.screen = room.phase==='lobby' ? 'lobby' : 'game';
     render();
