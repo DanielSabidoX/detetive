@@ -27,7 +27,7 @@
   var CENTER_OFFSET = Math.floor(BLOCK/2); // célula usada como "âncora" central da sala
 
   // ---- Os 6 suspeitos do jogo original — precisa bater com o SUSPEITOS do main.js ----
-  var SUSPECTS = ["Prof. Black","Srta. Rosa","Cel. Mostarda","Dona Branca","Sr. Marinho","Dona Violeta"];
+  var SUSPECTS = ["Prof. Black","Cel. Mostarda","Sr. Marinho","Dona Branca","Srta. Rosa","Dona Violeta"];
 
   // ---- As 6 armas do jogo — figuras SVG, todas em cinza ----
   var WEAPON_COLOR = '#FFF';       // armas
@@ -43,24 +43,32 @@
 
   // cada arma tem seu próprio desenho vetorial (24x24)
   var WEAPON_SVG = {
-    'revolver':
-      '<path d="M3 9h12l2 3h4v2h-3l-1 2h-4l-1-2H8l-2 4H3l1.6-4H3z"/>'+
-      '<circle cx="9" cy="11" r="2.1"/>',
-    'punhal':
-      '<path d="M12 2l2 9h-4l2-9z"/>'+
-      '<path d="M7 11h10v2H7z"/>'+
-      '<path d="M11 13h2v8h-2z"/>',
-    'corda':
-      '<path d="M6 4c5 0 5 4 0 4s-5 4 0 4 5 4 0 4" />'+
-      '<path d="M14 4c5 0 5 4 0 4s-5 4 0 4 5 4 0 4" />',
-    'castical':
-      '<path d="M11 3h2v4h-2z"/>'+
-      '<path d="M10 7h4v9h-4z"/>'+
-      '<path d="M7 20h10v2H7z"/>'+
-      '<path d="M9 18h6v2H9z"/>',
-    'chave-inglesa':
-      '<path d="M17 3a5 5 0 00-4.6 7L4 18.4 6.6 21l8.4-8.4A5 5 0 1017 3zm0 2.2a2.8 2.8 0 11-.01 5.61A2.8 2.8 0 0117 5.2z"/>',
-    'cano-de-chumbo':
+'revolver':
+'<rect x="9" y="8.5" width="10" height="2.2" rx="0.6"/><rect x="18.5" y="8" width="1.2" height="1"/><circle cx="9" cy="10" r="2.8"/><circle cx="9" cy="10" r="1"/><path d="M6.8 12.2 L4.2 18.5 Q4 19.3 4.8 19.8 L7.2 20.6 Q8.1 20.9 8.5 20 L10 15.5 Z"/><path d="M10.5 11.2 C11.2 11.3 11.8 11.8 11.8 12.5 C11.8 13.2 11.2 13.8 10.5 13.9 C10.2 13.9 10.1 13.5 10.4 13.3 C10.8 13.1 10.8 12 10.4 11.8 C10.1 11.6 10.2 11.2 10.5 11.2 Z"/>',
+
+
+'punhal':
+  '<polygon points="12,1,13.6,12,10.4,12"/>'+
+  '<rect x="7.5" y="12" width="9" height="1.6" rx="0.5"/>'+
+  '<rect x="11.1" y="13.9" width="1.8" height="3.6" rx="0.4"/>'+
+  '<circle cx="12" cy="18" r="1.6"/>',
+
+'corda':
+  '<g fill="none" stroke-linecap="round">'+
+    '<path d="M6 4 C1.5 4 1.5 9.5 6 9.5 C10.5 9.5 10.5 15 6 15 C1.5 15 1.5 20.5 6 20.5" stroke="#000" stroke-width="2.6"/>'+
+    '<path d="M6 4 C1.5 4 1.5 9.5 6 9.5 C10.5 9.5 10.5 15 6 15 C1.5 15 1.5 20.5 6 20.5" stroke="#fff" stroke-width="1.6"/>'+
+    '<path d="M17 2.5 C21.5 2.5 21.5 8 17 8 C12.5 8 12.5 13.5 17 13.5 C21.5 13.5 21.5 19 17 19" stroke="#000" stroke-width="2.6"/>'+
+    '<path d="M17 2.5 C21.5 2.5 21.5 8 17 8 C12.5 8 12.5 13.5 17 13.5 C21.5 13.5 21.5 19 17 19" stroke="#fff" stroke-width="1.6"/>'+
+  '</g>',
+
+'castical':
+  '<ellipse cx="12" cy="21.3" rx="6" ry="1.6"/>'+
+  '<path d="M7 21 Q7 19 9 18.5 L10.4 12.5 Q8.6 12 8.6 10 Q8.6 8.3 10.2 7.6 L10.2 4.5 Q10.2 3.6 11 3.6 L13 3.6 Q13.8 3.6 13.8 4.5 L13.8 7.6 Q15.4 8.3 15.4 10 Q15.4 12 13.6 12.5 L15 18.5 Q17 19 17 21 Z"/>'+
+  '<path d="M12 1.2 C13.4 2.4 13.4 3.6 12 4.6 C10.6 3.6 10.6 2.4 12 1.2 Z"/>',
+
+'chave-inglesa': '<path fill-rule="evenodd" d="M15.5 2.2 A4.3 4.3 0 1 0 15.9 10.6 L4.4 22 L2 19.6 L13.4 8.2 A4.3 4.3 0 0 0 15.5 2.2 Z M15.3 4.3 A2.1 2.1 0 1 1 13.2 6.4 A2.1 2.1 0 0 1 15.3 4.3 Z"/>',
+
+'cano-de-chumbo':
       '<path d="M4 10h11a4 4 0 014 4v6h-2.4v-6a1.6 1.6 0 00-1.6-1.6H4z"/>'+
       '<path d="M2 9.2h3v3.6H2z"/>'
   };

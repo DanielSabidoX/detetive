@@ -396,3 +396,30 @@ linear-gradient(
 #tabuleiro-painel .tab-zoom-controls button:hover{
   background: var(--gold,#b8863b); color: #1a1509;
 }
+
+.weapon-svg{
+    width:24px;
+    height:24px;
+
+    fill:#d8d8d8;
+    stroke:#2a2a2a;
+    stroke-width:.8;
+    stroke-linejoin:round;
+    stroke-linecap:round;
+
+    filter:
+        drop-shadow(0 1px 1px rgba(255,255,255,.35))
+        drop-shadow(0 2px 2px rgba(0,0,0,.35));
+}
+
+.weapon-svg .wood{
+    fill:#7b4c2b;
+}
+
+.weapon-svg .gold{
+    fill:#d9b54a;
+}
+
+.weapon-svg .steel{
+    fill:#d9d9d9;
+}
