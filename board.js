@@ -127,26 +127,26 @@
 
     'cano-de-chumbo':
       '<defs>' +
-        '<linearGradient id="tuboGrad" x1="0%" y1="0%" x2="100%" y2="100%">' +
-          '<stop offset="0%" stop-color="#DCE2EA"/>' +
-          '<stop offset="30%" stop-color="#8A94A3"/>' +
-          '<stop offset="70%" stop-color="#434B57"/>' +
+        '<linearGradient id="tubo45" x1="0%" y1="0%" x2="100%" y2="100%">' +
+          '<stop offset="0%" stop-color="#E8ECF2"/>' +
+          '<stop offset="25%" stop-color="#9BA4B2"/>' +
+          '<stop offset="55%" stop-color="#4B5360"/>' +
+          '<stop offset="85%" stop-color="#2D333B"/>' +
           '<stop offset="100%" stop-color="#1A1E24"/>' +
         '</linearGradient>' +
-        '<linearGradient id="brilhoInterno" x1="0%" y1="0%" x2="0%" y2="100%">' +
-          '<stop offset="0%" stop-color="rgba(255,255,255,0.5)"/>' +
-          '<stop offset="100%" stop-color="rgba(255,255,255,0)"/>' +
-        '</linearGradient>' +
       '</defs>' +
-      // Corpo do cano curvo (fino e longo)
-      '<path fill-rule="evenodd" d="M 900 80 L 930 120 C 950 160, 930 210, 890 240 L 260 810 C 230 835, 220 865, 210 900 L 150 1020 C 120 1060, 70 1080, 40 1050 L 10 1010 C -20 970, -10 920, 30 880 L 130 790 C 150 770, 170 750, 180 720 L 780 170 C 810 145, 830 120, 840 90 L 850 60 C 860 30, 890 40, 900 80 Z" fill="url(#tuboGrad)" stroke="#15181C" stroke-width="4" stroke-linejoin="round"/>' +
-      // Brilho lateral (para dar o aspecto de tubo cilíndrico arredondado)
-      '<path d="M 900 80 L 930 120 C 950 160, 930 210, 890 240 L 260 810 C 230 835, 220 865, 210 900 L 150 1020 C 120 1060, 70 1080, 40 1050 L 10 1010 C -20 970, -10 920, 30 880 L 130 790 C 150 770, 170 750, 180 720 L 780 170 C 810 145, 830 120, 840 90 L 850 60 C 860 30, 890 40, 900 80 Z" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" stroke-linejoin="round"/>' +
-      // Linha de luz reflexiva no topo da curvatura
-      '<path d="M 890 110 L 920 150 C 940 190, 920 230, 880 260 L 250 830 C 220 855, 210 885, 200 920" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="5" stroke-linecap="round"/>' +
-      // Sombra interna no lado oposto (para dar volume 3D)
-      '<path d="M 60 1030 L 30 990 C 0 950, 10 910, 50 870 L 150 780" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="6" stroke-linecap="round"/>'
-    
+      // Corpo principal do cano (inclinado a 45 graus)
+      '<g transform="translate(512, 512) rotate(45) translate(-512, -512)">' +
+        // Cano reto perfeito (sem pontas, sem conectores)
+        '<rect x="470" y="40" width="80" height="944" rx="40" fill="url(#tubo45)" stroke="#15181C" stroke-width="4"/>' +
+        // Brilho reflexivo no topo esquerdo (volume cilíndrico)
+        '<rect x="482" y="40" width="10" height="944" rx="5" fill="rgba(255,255,255,0.20)"/>' +
+        // Brilho secundário mais sutil
+        '<rect x="518" y="40" width="6" height="944" rx="3" fill="rgba(255,255,255,0.08)"/>' +
+        // Sombra profunda no lado direito (volume 3D)
+        '<rect x="460" y="40" width="100" height="944" rx="50" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="8"/>' +
+      '</g>'
+
     };
 
   function weaponSvg(slug){
