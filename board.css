@@ -3,16 +3,78 @@
    Uso: <link rel="stylesheet" href="tabuleiro/board.css"> */
 
 #tabuleiro-painel{
-  /* ===== CORES DAS SALAS — ajuste livremente aqui ===== */
-  --cor-hall:            #dc475d; 
-  --cor-sala-estar:      #0d4b82; 
-  --cor-salao-festas:    #b8b782; 
-  --cor-biblioteca:      #C1EC45; 
-  --cor-escritorio:      #E2AA44; 
-  --cor-sala-jantar:     #2C4A6E; 
-  --cor-salao-jogos:     #5A7A4A; 
-  --cor-sala-musica:     #008AFF; 
-  --cor-cozinha:         #9da6a8; 
+  /* ===== CORES DAS SALAS (gradientes) ===== */
+--cor-hall:
+linear-gradient(
+160deg,
+#ff8d9d 0%,
+#ff647c 18%,
+#dc475d 55%,
+#a41d33 100%);
+
+--cor-sala-estar:
+linear-gradient(
+160deg,
+#62b7ff 0%,
+#2d8fff 18%,
+#0d4b82 60%,
+#062947 100%);
+
+--cor-salao-festas:
+linear-gradient(
+160deg,
+#8ce6c8 0%,
+#5fd7b2 18%,
+#43AA8B 55%,
+#286b56 100%);
+
+--cor-biblioteca:
+linear-gradient(
+160deg,
+#d0a07d 0%,
+#b97a56 20%,
+#7A4A3B 60%,
+#4d2d23 100%);
+
+--cor-escritorio:
+linear-gradient(
+160deg,
+#88665d 0%,
+#6b4a45 20%,
+#4A2E2B 60%,
+#271715 100%);
+
+--cor-sala-jantar:
+linear-gradient(
+160deg,
+#7fb7ef 0%,
+#5d9cec 20%,
+#2C4A6E 60%,
+#18273b 100%);
+
+--cor-salao-jogos:
+linear-gradient(
+160deg,
+#a9e26d 0%,
+#8bc34a 20%,
+#5A7A4A 60%,
+#344629 100%);
+
+--cor-sala-musica:
+linear-gradient(
+160deg,
+#6bc8ff 0%,
+#42a5f5 20%,
+#008AFF 60%,
+#0052a3 100%);
+
+--cor-cozinha:
+linear-gradient(
+160deg,
+#eceff0 0%,
+#d7dbdc 20%,
+#9da6a8 60%,
+#676f72 100%);
   /* ===== fim das cores das salas ===== */
 
   position: fixed;
@@ -30,6 +92,79 @@
   user-select: none;
   font-family: 'Courier Prime', monospace;
   color: var(--paper, #ece0c4);
+}
+
+.tab-room{
+    position:relative;
+    overflow:hidden;
+
+    background:var(--room-color);
+
+    border:4px solid #151515;
+    border-radius:14px;
+
+    box-shadow:
+        0 5px 0 #181818,
+        0 10px 18px rgba(0,0,0,.35),
+        inset 0 2px 0 rgba(255,255,255,.30),
+        inset 0 -8px 10px rgba(0,0,0,.20);
+
+    transition:.25s;
+}
+
+.tab-room::before{
+    content:"";
+    position:absolute;
+    inset:0;
+
+    background:
+        radial-gradient(
+            ellipse at 20% 18%,
+            rgba(255,255,255,.35) 0%,
+            rgba(255,255,255,.15) 20%,
+            transparent 45%
+        ),
+        radial-gradient(
+            ellipse at 80% 75%,
+            rgba(255,255,255,.12) 0%,
+            transparent 40%
+        );
+
+    pointer-events:none;
+}
+
+.tab-room::after{
+    content:"";
+    position:absolute;
+    inset:0;
+
+    background:
+
+        repeating-linear-gradient(
+            45deg,
+            rgba(255,255,255,.04) 0px,
+            rgba(255,255,255,.04) 2px,
+            rgba(0,0,0,.03) 3px,
+            rgba(0,0,0,.03) 4px
+        ),
+
+        repeating-linear-gradient(
+            -45deg,
+            rgba(255,255,255,.03) 0px,
+            rgba(255,255,255,.03) 3px,
+            transparent 4px,
+            transparent 8px
+        );
+
+    mix-blend-mode:overlay;
+    opacity:.45;
+
+    pointer-events:none;
+}
+
+.tab-room{
+    outline:2px solid rgba(255,255,255,.18);
+    outline-offset:-6px;
 }
 
 /* barra de arrastar o painel inteiro */
@@ -114,16 +249,14 @@
   box-shadow: inset 0 0 0 2px var(--gold-bright,#d9a44f);
 }
 .tab-room-name{
-  border: 1px solid #000;
-  border-radius: 5px;
-  padding: 5px;
-  font-family:'Oswald',sans-serif;
-  font-size: 9.5px;
-  font-weight: bolder;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: #000;
-  line-height: 1.15;
+    font-family:'Oswald',sans-serif;
+    font-size:9.5px;
+    font-weight:900;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+
+    color:#111;
+
 }
 
 /* ===== peões ===== */
