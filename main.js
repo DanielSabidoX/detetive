@@ -51,6 +51,8 @@ var state = {
   showAccuseModal: false,
   suggestPick: {suspeito:SUSPEITOS[0], arma:ARMAS[0], local:LOCAIS[0]},
   accusePick: {suspeito:SUSPEITOS[0], arma:ARMAS[0], local:LOCAIS[0]},
+  suggestUsedTurnIndex: null,
+  suggestModalPos: null,
   history: []
 };
 
@@ -428,6 +430,7 @@ async function makeSuggestion(){
   });
   // move o peão do suspeito e a arma do palpite para o cômodo indicado
   try{ if(window.boardMoveToRoom) window.boardMoveToRoom(pick.suspeito, pick.arma, pick.local); }catch(e){}
+  state.suggestUsedTurnIndex = room.turnIndex; // trava "Fazer Palpite" até a próxima vez do jogador
   state.showSuggestModal = false;
   render();
 }
@@ -849,7 +852,10 @@ function renderGame(){
     html += '<div class="panel">'+
       '<div class="section-title"><h2>Ações</h2></div>'+
       '<div class="row">'+
-        '<button onclick="__actions.openSuggest()">Fazer Palpite</button>'+
+        (myTurn && state.suggestUsedTurnIndex!==room.turnIndex ?
+          '<button onclick="__actions.openSuggest()">Fazer Palpite</button>' :
+          '<button disabled title="'+(myTurn ? 'Você já fez um palpite neste turno.' : 'Aguarde a sua vez.')+'">Fazer Palpite</button>'
+        )+
         (myTurn ? '<button onclick="__actions.passTurn()">Passar a Vez</button>' : '')+
         (!me.eliminated ? '<button class="danger" onclick="__actions.openAccuse()">Acusação Final</button>' : '')+
       '</div>'+
@@ -893,9 +899,13 @@ function renderGame(){
   }
 
   if(state.showSuggestModal){
+    var sp = state.suggestModalPos;
+    var spStyle = sp ? ' style="position:fixed;left:'+sp.left+'px;top:'+sp.top+'px;margin:0;"' : '';
     html += '<div class="modal-overlay" onclick="if(event.target===this) __actions.closeModals()">'+
-      '<div class="modal">'+
-        '<h3>Fazer um palpite</h3>'+
+      '<div class="modal" id="suggestModal"'+spStyle+'>'+
+        '<div class="modal-drag-handle" style="cursor:grab;touch-action:none;margin:-20px -20px 14px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,.12);">'+
+          '<h3 style="margin:0;">⠿ Fazer um palpite</h3>'+
+        '</div>'+
         selectField('suggestPick','suspeito','Suspeito',SUSPEITOS)+
         selectField('suggestPick','arma','Arma',ARMAS)+
         selectField('suggestPick','local','Cômodo',LOCAIS)+
@@ -987,6 +997,43 @@ function render(){
   else if(state.screen==='history') html = renderHistory();
   else if(state.screen==='gone') html = renderGone();
   app.innerHTML = html;
+  if(state.showSuggestModal) attachSuggestModalDrag();
+}
+
+// arrasta o modal "Fazer um palpite" pela barra do topo. Precisa ser
+// reanexado a cada render(), pois o innerHTML do #app é recriado do zero
+// sempre que a sala do Firestore atualiza (ex: novo item no log).
+function attachSuggestModalDrag(){
+  var modal = document.getElementById('suggestModal');
+  var handle = modal && modal.querySelector('.modal-drag-handle');
+  if(!modal || !handle) return;
+
+  var dragging=false, sx=0, sy=0, ox=0, oy=0;
+
+  handle.addEventListener('pointerdown', function(e){
+    var r = modal.getBoundingClientRect();
+    modal.style.position='fixed'; modal.style.margin='0';
+    modal.style.left=r.left+'px'; modal.style.top=r.top+'px';
+    dragging=true; sx=e.clientX; sy=e.clientY; ox=r.left; oy=r.top;
+    handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove', function(e){
+    if(!dragging) return;
+    var dx=e.clientX-sx, dy=e.clientY-sy;
+    var left = Math.min(Math.max(0, ox+dx), window.innerWidth-60);
+    var top  = Math.min(Math.max(0, oy+dy), window.innerHeight-40);
+    modal.style.left=left+'px'; modal.style.top=top+'px';
+  });
+  function stop(){
+    if(!dragging) return;
+    dragging=false;
+    state.suggestModalPos = {
+      left: parseFloat(modal.style.left)||0,
+      top: parseFloat(modal.style.top)||0
+    };
+  }
+  handle.addEventListener('pointerup', stop);
+  handle.addEventListener('pointercancel', stop);
 }
 
 window.__actions = {

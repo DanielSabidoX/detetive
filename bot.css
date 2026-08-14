@@ -1,0 +1,99 @@
+/* ===== Detetives IA — Caso Arquivado =====
+   Arquivo isolado, independente do main.js.
+   Uso: <link rel="stylesheet" href="bot.css">
+   Segue a mesma identidade visual de solucao.css (papel/dourado). */
+
+#bot-painel{
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 9997;
+  width: 300px;
+  max-width: calc(100vw - 20px);
+  box-sizing: border-box;
+  border: 1px solid rgba(212,175,102,.45);
+  border-radius: 14px;
+  background: rgba(20,16,12,.94);
+  box-shadow: 0 14px 34px rgba(0,0,0,.55);
+  backdrop-filter: blur(4px);
+  user-select: none;
+  font-family: 'Courier Prime', monospace;
+  color: var(--paper, #ece0c4);
+}
+
+#bot-painel .bot-handle{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;
+  cursor: grab;
+  border-bottom: 1px solid rgba(212,175,102,.25);
+  touch-action: none;
+}
+#bot-painel.dragging-panel .bot-handle{ cursor: grabbing; }
+#bot-painel .bot-handle h3{
+  margin:0;font-family:'Oswald',sans-serif;font-size:14px;
+  letter-spacing:.15em;text-transform:uppercase;color:var(--gold,#b8863b);
+}
+#bot-painel .bot-toggle{
+  background:none;border:1px solid var(--gold,#b8863b);color:var(--gold-bright,#d9a44f);
+  font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 10px;border-radius:3px;cursor:pointer;
+}
+#bot-painel .bot-toggle:hover{background:var(--gold,#b8863b);color:#1a1509;}
+
+#bot-painel .bot-body{ padding: 16px; }
+#bot-painel.collapsed .bot-body{ display:none; }
+
+#bot-painel .bot-status{
+  font-size: 10px;letter-spacing:.15em;text-transform:uppercase;
+  color: var(--muted,#a89a7d); margin-bottom: 12px; text-align:center;
+}
+#bot-painel .bot-status.on{ color: var(--ok,#5f8a52); }
+
+#bot-painel .bot-empty{
+  font-size:12px;color:var(--muted,#a89a7d);font-style:italic;text-align:center;padding:16px 6px;
+}
+
+.bot-list{
+  display:flex;flex-direction:column;gap:8px;margin-bottom: 14px;
+}
+
+.bot-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding: 8px 10px;
+  background: rgba(212,175,102,.06);
+  border: 1px solid rgba(212,175,102,.2);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.bot-remove{
+  background:none;
+  border: 1px solid var(--red-bright,#b5433a);
+  color: var(--red-bright,#b5433a);
+  font-family:'Oswald',sans-serif; font-size: 10px; letter-spacing:.08em; text-transform:uppercase;
+  padding: 3px 8px; border-radius: 3px; cursor: pointer;
+}
+.bot-remove:hover{ background: var(--red-bright,#b5433a); color:#1a1509; }
+
+.bot-add{
+  display:block; width:100%;
+  font-family:'Oswald',sans-serif; font-weight:600; letter-spacing:.06em;
+  text-transform:uppercase; font-size:13px;
+  background: transparent; color: var(--gold-bright,#d9a44f);
+  border: 1px dashed var(--gold,#b8863b);
+  padding: 10px 18px; border-radius:3px; cursor:pointer;
+  transition: background .15s ease, transform .1s ease;
+}
+.bot-add:hover{ background: rgba(212,175,102,.12); }
+.bot-add:active{ transform: translateY(1px); }
+
+.bot-hint{
+  font-size: 10.5px;
+  color: var(--muted,#a89a7d);
+  text-align: center;
+  margin-top: 10px;
+}
+
+@media (max-width: 640px){
+  #bot-painel{ width: 260px; bottom: 10px; left: 10px; }
+}

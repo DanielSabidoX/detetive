@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="solucao.css">
 <link rel="stylesheet" href="admin.css">
 <link rel="stylesheet" href="voice.css">
+<link rel="stylesheet" href="bot.css"> <!-- NOVO -->
 <link rel="stylesheet" href="admin-launcher.css">
 </head>
 <body>
@@ -27,6 +28,7 @@
 <div id="solucao-painel"></div>
 <div id="admin-painel"></div>
 <div id="voz-painel"></div>
+<div id="bot-painel"></div> <!-- NOVO -->
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -40,6 +42,7 @@
 <script src="admin.js"></script>
 <script src="suspense_music.js"></script>
 <script src="voice.js"></script>
+<script src="bot.js"></script> <!-- NOVO -->
 <script>
   function safeMount(fn, sel){ try{ if(typeof window[fn]==='function') window[fn](sel); }catch(e){ console.warn(fn, e); } }
   safeMount('mountDice','#dado');
@@ -49,6 +52,7 @@
   safeMount('mountSolution','#solucao-painel');
   safeMount('mountAdmin','#admin-painel');
   safeMount('mountVoice','#voz-painel');
+  safeMount('mountBot','#bot-painel'); // NOVO
 </script>
 
 <!-- 
