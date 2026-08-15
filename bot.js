@@ -118,6 +118,17 @@
     return null;
   }
 
+  // precisa bater com SECRET_PASSAGES do board.js
+  var SECRET_PASSAGES = {
+    'Hall': 'Cozinha',
+    'Cozinha': 'Hall',
+    'Salão de Jogos': 'Salão de Festas',
+    'Salão de Festas': 'Salão de Jogos'
+  };
+  function passageFromBoard(roomName){
+    return SECRET_PASSAGES[roomName] || null;
+  }
+
   // ---- spawn padrão determinístico (precisa bater com board.js: mesmo
   // código de sala => mesma posição inicial, pra todo mundo ver igual) ----
   var CORRIDOR_CELLS = (function(){
@@ -649,6 +660,20 @@
           var currentRoom = boardRoomAt(pos.row, pos.col);
 
           if(currentRoom){
+            // se a sala atual já não interessa mais (foi eliminada) mas a
+            // sala do outro lado da passagem secreta ainda é útil, usa a
+            // passagem em vez de sugerir aqui — só custa 1 passo
+            var passagemPara = passageFromBoard(currentRoom.name);
+            var salaAtualUtil = faltamLocais.indexOf(currentRoom.name) >= 0;
+            if(!salaAtualUtil && passagemPara && faltamLocais.indexOf(passagemPara) >= 0 && value >= 1){
+              var destRoom = findBoardRoomByName(passagemPara);
+              if(destRoom){
+                saveBoardPawnPos(slug, destRoom.anchorRow, destRoom.anchorCol);
+                roomsCol().doc(roomCode).update({ 'moveBudget.stepsLeft': 0 }).catch(function(){});
+                setTimeout(function(){ agirNaSala(destRoom.name); }, 1500);
+                return;
+              }
+            }
             agirNaSala(currentRoom.name);
             return;
           }

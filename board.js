@@ -183,7 +183,25 @@
       '.tab-move-hint{opacity:.85;margin-bottom:6px}'+
       '.tab-move-btn{display:block;width:100%;margin-top:4px;padding:6px 10px;border-radius:6px;'+
       'border:1px solid rgba(212,175,102,.5);background:transparent;color:inherit;cursor:pointer;font-size:12px}'+
-      '.tab-move-btn:hover{background:rgba(212,175,102,.15)}';
+      '.tab-move-btn:hover{background:rgba(212,175,102,.15)}'+
+      '.tab-move-btn.tab-move-passage{border-style:solid;border-color:#8a6bd1;color:#c9b6f5}'+
+      '.tab-move-btn.tab-move-passage:hover{background:rgba(138,107,209,.18)}'+
+      '.tab-room{position:relative;overflow:visible}'+
+      '.tab-room-passage{position:absolute;width:28px;height:28px;cursor:help;z-index:5;'+
+      'display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;}'+
+      '.tab-room-passage::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.68);}'+
+      '.tab-room-passage.corner-top-left{top:-1px;left:-1px}'+
+      '.tab-room-passage.corner-top-left::before{clip-path:polygon(0 0,100% 0,0 100%)}'+
+      '.tab-room-passage.corner-top-left span{margin:8px 0 0 8px}'+
+      '.tab-room-passage.corner-top-right{top:-1px;right:-1px}'+
+      '.tab-room-passage.corner-top-right::before{clip-path:polygon(0 0,100% 0,100% 100%)}'+
+      '.tab-room-passage.corner-top-right span{margin:8px 8px 0 0}'+
+      '.tab-room-passage.corner-bottom-left{bottom:-1px;left:-1px}'+
+      '.tab-room-passage.corner-bottom-left::before{clip-path:polygon(0 0,100% 100%,0 100%)}'+
+      '.tab-room-passage.corner-bottom-left span{margin:0 0 8px 8px}'+
+      '.tab-room-passage.corner-bottom-right{bottom:-1px;right:-1px}'+
+      '.tab-room-passage.corner-bottom-right::before{clip-path:polygon(100% 0,100% 100%,0 100%)}'+
+      '.tab-room-passage.corner-bottom-right span{margin:0 8px 8px 0}';
     document.head.appendChild(st);
   })();
 
@@ -250,7 +268,7 @@
           : { row: r0, col: c0+BLOCK };     // colunas esquerda/meio -> porta olha pra direita (linha de cima)
 
         rooms.push({
-          name:name, r0:r0, c0:c0,
+          name:name, r0:r0, c0:c0, ri:ri, ci:ci,
           anchorRow: r0+CENTER_OFFSET, anchorCol: c0+CENTER_OFFSET,
           color: color,
           doors: [doorSouth, doorSide]
@@ -269,6 +287,27 @@
   }
 
   var ROOM_META = buildRoomMeta();
+
+  // Passagens secretas: ligam cantos diagonais opostos do tabuleiro, igual
+  // ao jogo original (ex: Cozinha <-> Hall). Consultar por nome da sala.
+  var SECRET_PASSAGES = {
+    'Hall': 'Cozinha',
+    'Cozinha': 'Hall',
+    'Salão de Jogos': 'Salão de Festas',
+    'Salão de Festas': 'Salão de Jogos'
+  };
+  function passageFrom(roomName){
+    return SECRET_PASSAGES[roomName] || null;
+  }
+  // em qual canto do bloco da sala fica o aviso da passagem — sempre a
+  // quina externa da PRÓPRIA sala (essas 4 salas ficam nos 4 cantos do
+  // tabuleiro), não a direção de quem ela se conecta
+  function passageCorner(room){
+    if(!passageFrom(room.name)) return null;
+    var vert = room.ri===0 ? 'top' : 'bottom';
+    var horiz = room.ci===0 ? 'left' : 'right';
+    return vert+'-'+horiz;
+  }
 
   function isRoomCell(r,c){
     return ROOM_META.cellOwner.hasOwnProperty(r+','+c);
@@ -881,7 +920,10 @@
             div.style.gridRow = room.r0 + ' / span ' + BLOCK;
             div.style.gridColumn = room.c0 + ' / span ' + BLOCK;
             div.style.setProperty('--room-color', room.color);
-            div.innerHTML = '<span class="tab-room-name">'+escHtml(room.name)+'</span>';
+            var passagemPara = passageFrom(room.name);
+            var cantoPassagem = passagemPara ? passageCorner(room) : null;
+            div.innerHTML = '<span class="tab-room-name">'+escHtml(room.name)+'</span>'+
+              (cantoPassagem ? '<div class="tab-room-passage corner-'+cantoPassagem+'" title="Passagem secreta para '+escHtml(passagemPara)+'"><span>🕳️</span></div>' : '');
             frag.appendChild(div);
           } else {
             var cell = document.createElement('div');
@@ -1198,6 +1240,30 @@
       renderMoveControls();
     }
 
+    // usa a passagem secreta da sala atual (ex: Hall <-> Cozinha), indo
+    // direto pra âncora da sala conectada. Custa só 1 passo do dado, e
+    // encerra o movimento do turno — igual a entrar numa sala normalmente.
+    function usePassage(){
+      if(!isMyTurnBoard() || myMoveBudget()<1) return;
+      var slug = slugForPlayerId(myPlayerId());
+      if(!slug) return;
+      var idx = -1;
+      for(var i=0;i<players.length;i++){ if(players[i].id===myPlayerId()){ idx=i; break; } }
+      var pos = pawns[slug] || defaultSpawn(idx, slug);
+      var myRoom = roomAt(pos.row, pos.col);
+      if(!myRoom) return;
+      var destName = passageFrom(myRoom.name);
+      if(!destName) return;
+      var dest = findRoomByName(destName);
+      if(!dest) return;
+
+      pawns[slug] = {row:dest.anchorRow, col:dest.anchorCol};
+      renderPawns();
+      savePosition('pawns', slug, dest.anchorRow, dest.anchorCol);
+      endMovement();
+      renderMoveControls();
+    }
+
     // destaca no tabuleiro as células de corredor/porta que o jogador pode
     // clicar agora (1 passo de distância, respeitando as regras de parede)
     function highlightReachableCells(){
@@ -1250,6 +1316,10 @@
         myRoom.doors.forEach(function(d){
           html += '<button type="button" class="tab-move-btn" data-exit="'+d.row+','+d.col+'">Sair pela '+escHtml(doorLabel(myRoom, d))+'</button>';
         });
+        var passagem = passageFrom(myRoom.name);
+        if(passagem){
+          html += '<button type="button" class="tab-move-btn tab-move-passage" data-passage="1">🕳️ Usar passagem secreta para '+escHtml(passagem)+'</button>';
+        }
       } else if(onDoor){
         html += '<div class="tab-move-hint">Passos restantes: '+budget+'.</div>';
         html += '<button type="button" class="tab-move-btn" data-enter="1">Entrar em '+escHtml(onDoor.name)+'</button>';
@@ -1262,6 +1332,8 @@
 
       var enterBtn = moveControlsEl.querySelector('[data-enter]');
       if(enterBtn) enterBtn.addEventListener('click', enterRoom);
+      var passageBtn = moveControlsEl.querySelector('[data-passage]');
+      if(passageBtn) passageBtn.addEventListener('click', usePassage);
       var exitBtns = moveControlsEl.querySelectorAll('[data-exit]');
       exitBtns.forEach(function(btn){
         btn.addEventListener('click', function(){
