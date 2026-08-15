@@ -96,6 +96,13 @@ python3 -m http.server 8000
 ```
 e acesse `http://localhost:8000`.
 
+## Configurações IA
+Ajustando a dificuldade
+
+Se quiser bots mais ousados/enganadores, é só subir CHANCE_DE_BLEFE (por exemplo, 0.4 = 40% das sugestões). Se quiser bots mais "honestos"/previsíveis (mais fácil de jogar contra), abaixe pra 0.1 ou 0.
+
+Nota importante: o blefe só acontece nas sugestões. A acusação final continua 100% baseada em certeza real — um bot nunca vai te enganar fingindo estar errado na hora de acusar, isso quebraria a lógica do jogo (ele só acusa quando tem certeza matemática da resposta).
+
 ## Como jogar
 
 1. Um jogador clica em "Criar Sala" e recebe um código de 5 caracteres

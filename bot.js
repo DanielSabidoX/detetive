@@ -61,6 +61,9 @@
     }
 
     var logRecente = ctx.logRecente || '(sem histórico ainda)';
+    var ultimasProprias = (historicoSugestoes[ctx.botId] || [])
+      .map(function(t){ return t.suspeito+' + '+t.arma+' + '+t.local; })
+      .join(' | ') || '(nenhuma ainda)';
 
     var prompt =
       'Você está jogando um jogo de dedução estilo Detetive/Clue. É sua vez de sugerir.\n'+
@@ -69,6 +72,8 @@
       'Suspeitos possíveis: '+ctx.faltamSuspeitos.join(', ')+'\n'+
       'Armas possíveis: '+ctx.faltamArmas.join(', ')+'\n'+
       'Cômodos possíveis: '+ctx.faltamLocais.join(', ')+'\n\n'+
+      'Suas últimas sugestões (evite repetir a mesma combinação de novo):\n'+
+      ultimasProprias+'\n\n'+
       'Histórico recente da partida (para te ajudar a raciocinar sobre o que os outros já sugeriram):\n'+
       logRecente+'\n\n'+
       'Responda APENAS com um JSON no formato exato, sem nenhum texto antes ou depois:\n'+
@@ -113,6 +118,73 @@
       arma: pickRandom(ctx.faltamArmas),
       local: pickRandom(ctx.faltamLocais)
     };
+  }
+
+  // ---- variedade e blefe ----
+  var CHANCE_DE_BLEFE = 0.25; // 25% das sugestões incluem uma carta que o bot já sabe ser falsa
+  var HISTORICO_MAX = 3;
+  var historicoSugestoes = {}; // botId -> array das últimas trios sugeridos por ele
+
+  function cardCategoria(c){
+    if(BOT_SUSPEITOS.indexOf(c)>=0) return 'suspeito';
+    if(BOT_ARMAS.indexOf(c)>=0) return 'arma';
+    if(BOT_LOCAIS.indexOf(c)>=0) return 'local';
+    return null;
+  }
+
+  // se a sugestão for idêntica à última que esse bot mesmo fez, troca pelo
+  // menos uma categoria por outra opção ainda válida, pra não repetir toda hora
+  function evitarRepeticao(pick, botId, ctx){
+    var historico = historicoSugestoes[botId] || [];
+    var ultimo = historico[historico.length-1];
+    if(!ultimo) return pick;
+    if(ultimo.suspeito!==pick.suspeito || ultimo.arma!==pick.arma || ultimo.local!==pick.local){
+      return pick; // já é diferente, não precisa mexer
+    }
+
+    var categorias = shuffle(['suspeito','arma','local']);
+    for(var i=0;i<categorias.length;i++){
+      var cat = categorias[i];
+      var pool = cat==='suspeito' ? ctx.faltamSuspeitos : cat==='arma' ? ctx.faltamArmas : ctx.faltamLocais;
+      var alternativas = pool.filter(function(c){ return c !== pick[cat]; });
+      if(alternativas.length){
+        var novo = {}; for(var k in pick) novo[k]=pick[k];
+        novo[cat] = pickRandom(alternativas);
+        return novo;
+      }
+    }
+    return pick; // não há alternativa em nenhuma categoria (raro, categoria já resolvida em tudo)
+  }
+
+  // com uma certa chance, troca uma categoria por uma carta que o bot já
+  // sabe NÃO ser a resposta (prioriza a própria mão) — blefe estratégico
+  function talvezBlefar(pick, mem){
+    if(Math.random() > CHANCE_DE_BLEFE) return pick;
+
+    var conhecidasFalsas = mem.hand.slice();
+    for(var c in mem.conhecidoNao){
+      if(mem.hand.indexOf(c) < 0) conhecidasFalsas.push(c);
+    }
+    if(!conhecidasFalsas.length) return pick;
+
+    var opcoes = shuffle(conhecidasFalsas);
+    for(var i=0;i<opcoes.length;i++){
+      var cat = cardCategoria(opcoes[i]);
+      if(cat){
+        var novo = {}; for(var k in pick) novo[k]=pick[k];
+        novo[cat] = opcoes[i];
+        return novo;
+      }
+    }
+    return pick;
+  }
+
+  function registrarSugestao(botId, pick){
+    if(!historicoSugestoes[botId]) historicoSugestoes[botId] = [];
+    historicoSugestoes[botId].push(pick);
+    if(historicoSugestoes[botId].length > HISTORICO_MAX){
+      historicoSugestoes[botId].shift();
+    }
   }
 
   function getSession(){
@@ -353,12 +425,18 @@
 
         var logRecente = (room.log||[]).slice(-15).map(function(e){ return e.text; }).join('\n');
 
-        escolherSugestaoComIA({
+        var ctx = {
+          botId: botId,
           faltamSuspeitos: faltamSuspeitos,
           faltamArmas: faltamArmas,
           faltamLocais: faltamLocais,
           logRecente: logRecente
-        }, function(pick){
+        };
+
+        escolherSugestaoComIA(ctx, function(pick){
+          pick = evitarRepeticao(pick, botId, ctx);
+          pick = talvezBlefar(pick, mem);
+          registrarSugestao(botId, pick);
           fazerSugestao(p, pick);
         });
       });
