@@ -74,12 +74,40 @@
     var lastRollId = null;
     var roomCode = null, unsub = null;
     var locked = false;
+    var roomData = null; // guarda a sala inteira, pra saber de quem é a vez
+
+    function activePlayerId(){
+      if(!roomData) return null;
+      var order = (roomData.turnOrder||[]).filter(function(id){
+        var p = (roomData.players||[]).filter(function(pp){ return pp.id===id; })[0];
+        return p && !p.eliminated;
+      });
+      if(!order.length) return null;
+      return order[roomData.turnIndex % order.length];
+    }
+    function isMyTurnDice(){
+      var s = getSession();
+      return !!(s && s.pid && roomData && roomData.phase==='playing' && activePlayerId()===s.pid);
+    }
+    // true assim que ALGUÉM rolou o dado neste turnIndex — mesmo antes do
+    // moveBudget (que só chega depois da animação) ser gravado
+    function jaRolouEsseTurno(){
+      return !!(roomData && roomData.lastRollTurnIndex===roomData.turnIndex);
+    }
 
     function applyLockUI(){
       if(locked){
         btn.disabled = true;
         stage.classList.add('dice-disabled');
         hintEl.textContent = 'O anfitrião desabilitou o dado no momento.';
+      } else if(roomCode && !isMyTurnDice()){
+        btn.disabled = true;
+        stage.classList.add('dice-disabled');
+        hintEl.textContent = 'Aguarde a sua vez para rolar o dado.';
+      } else if(roomCode && jaRolouEsseTurno()){
+        btn.disabled = true;
+        stage.classList.add('dice-disabled');
+        hintEl.textContent = 'Você já rolou o dado neste turno.';
       } else {
         if(!rolling) btn.disabled = false;
         stage.classList.remove('dice-disabled');
@@ -121,6 +149,8 @@
       }, 3000);
     }
 
+    var ROLL_ANIM_MS = 3600; // precisa ser >= tempo total da animação (3000 + 500 + folga)
+
     function roll(){
       if(rolling || locked) return;
       var value = Math.floor(Math.random()*6)+1;
@@ -131,15 +161,39 @@
         return;
       }
 
+      if(!isMyTurnDice()){
+        hintEl.textContent = 'Aguarde a sua vez para rolar o dado.';
+        return;
+      }
+      if(jaRolouEsseTurno()){
+        hintEl.textContent = 'Você já rolou o dado neste turno.';
+        return;
+      }
+
+      var turnoDaRolagem = roomData.turnIndex;
+
       var payload = {
         diceValue: value,
         diceRollId: Date.now() + '-' + Math.random().toString(36).slice(2,8),
         diceBy: (s && s.name) ? s.name : 'Alguem',
-        diceAt: Date.now()
+        diceAt: Date.now(),
+        // trava "rolar de novo" JÁ, mesmo antes da animação acabar
+        lastRollTurnIndex: turnoDaRolagem
       };
 
       // O snapshot dispara a animacao para todos, inclusive para quem rolou.
-      db.collection('rooms').doc(roomCode).update(payload).catch(function(err){
+      db.collection('rooms').doc(roomCode).update(payload).then(function(){
+        // só libera o movimento no tabuleiro depois que a animação termina
+        // pra todo mundo — senão as casas "andáveis" apareceriam destacadas
+        // antes do dado visualmente parar de rolar.
+        setTimeout(function(){
+          db.collection('rooms').doc(roomCode).update({
+            moveBudget: { turnIndex: turnoDaRolagem, playerId: s.pid, stepsLeft: value }
+          }).catch(function(err){
+            console.warn('[dado] falha ao liberar movimento:', err && err.code, err && err.message);
+          });
+        }, ROLL_ANIM_MS);
+      }).catch(function(err){
         console.warn('[dado] falha ao gravar a rolagem na sala:', err && err.code, err && err.message);
         syncEl.textContent = 'Sem permissao - dado local';
         syncEl.classList.remove('on');
@@ -164,12 +218,13 @@
       var first = true;
       unsub = db.collection('rooms').doc(code).onSnapshot(function(snap){
         var d = snap.exists ? snap.data() : null;
+        roomData = d;
 
         var nowLocked = !!(d && d.diceLocked);
         if(nowLocked !== locked){
           locked = nowLocked;
-          applyLockUI();
         }
+        applyLockUI(); // reavalia sempre: turnIndex pode ter mudado sem mexer no diceLocked
 
         if(!d || !d.diceRollId){ first = false; return; }
         if(d.diceRollId === lastRollId) return;

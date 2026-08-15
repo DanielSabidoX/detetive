@@ -51,7 +51,8 @@ var state = {
   showAccuseModal: false,
   suggestPick: {suspeito:SUSPEITOS[0], arma:ARMAS[0], local:LOCAIS[0]},
   accusePick: {suspeito:SUSPEITOS[0], arma:ARMAS[0], local:LOCAIS[0]},
-  suggestUsedTurnIndex: null,
+  suggestedRoomVisit: null,
+  lastSeenRoom: null,
   suggestModalPos: null,
   history: []
 };
@@ -430,7 +431,7 @@ async function makeSuggestion(){
   });
   // move o peão do suspeito e a arma do palpite para o cômodo indicado
   try{ if(window.boardMoveToRoom) window.boardMoveToRoom(pick.suspeito, pick.arma, pick.local); }catch(e){}
-  state.suggestUsedTurnIndex = room.turnIndex; // trava "Fazer Palpite" até a próxima vez do jogador
+  state.suggestedRoomVisit = pick.local; // trava "Fazer Palpite" até sair e voltar a entrar nesta sala
   state.showSuggestModal = false;
   render();
 }
@@ -849,15 +850,32 @@ function renderGame(){
       '</div>'+
     '</div>';
 
+    // em qual sala (se houver) o meu peão está agora, segundo o tabuleiro
+    var myRoom = (typeof window.boardCurrentRoomOf === 'function') ? window.boardCurrentRoomOf(state.playerId) : null;
+
+    // detecta se isso é uma visita NOVA à sala (entrou agora, veio de fora ou
+    // de outra sala) — nesse caso libera o palpite de novo. Enquanto o
+    // jogador ficar na mesma sala sem sair, mesmo em turnos seguintes, o
+    // palpite continua travado.
+    if(myRoom !== state.lastSeenRoom){
+      if(myRoom) state.suggestedRoomVisit = null;
+      state.lastSeenRoom = myRoom;
+    }
+    var jaSugeriuNestaVisita = myRoom && state.suggestedRoomVisit === myRoom;
+
     html += '<div class="panel">'+
       '<div class="section-title"><h2>Ações</h2></div>'+
+      (myTurn && !myRoom ? '<div class="sub" style="margin-bottom:8px;">Você precisa estar dentro de uma sala para fazer um palpite ou acusação. Role o dado e mova seu peão até uma porta.</div>' : '')+
       '<div class="row">'+
-        (myTurn && state.suggestUsedTurnIndex!==room.turnIndex ?
+        (myTurn && myRoom && !jaSugeriuNestaVisita ?
           '<button onclick="__actions.openSuggest()">Fazer Palpite</button>' :
-          '<button disabled title="'+(myTurn ? 'Você já fez um palpite neste turno.' : 'Aguarde a sua vez.')+'">Fazer Palpite</button>'
+          '<button disabled title="'+(!myTurn ? 'Aguarde a sua vez.' : !myRoom ? 'Você precisa estar dentro de uma sala.' : 'Você já fez um palpite nesta sala. Saia e entre novamente para poder sugerir de novo.')+'">Fazer Palpite</button>'
         )+
         (myTurn ? '<button onclick="__actions.passTurn()">Passar a Vez</button>' : '')+
-        (!me.eliminated ? '<button class="danger" onclick="__actions.openAccuse()">Acusação Final</button>' : '')+
+        (!me.eliminated && myTurn && myRoom ?
+          '<button class="danger" onclick="__actions.openAccuse()">Acusação Final</button>' :
+          (!me.eliminated ? '<button class="danger" disabled title="'+(!myTurn ? 'Aguarde a sua vez.' : 'Você precisa estar dentro de uma sala.')+'">Acusação Final</button>' : '')
+        )+
       '</div>'+
     '</div>';
 
@@ -901,6 +919,8 @@ function renderGame(){
   if(state.showSuggestModal){
     var sp = state.suggestModalPos;
     var spStyle = sp ? ' style="position:fixed;left:'+sp.left+'px;top:'+sp.top+'px;margin:0;"' : '';
+    var salaAtual = (typeof window.boardCurrentRoomOf === 'function') ? window.boardCurrentRoomOf(state.playerId) : null;
+    if(salaAtual) state.suggestPick.local = salaAtual; // só pode sugerir a sala onde está
     html += '<div class="modal-overlay" onclick="if(event.target===this) __actions.closeModals()">'+
       '<div class="modal" id="suggestModal"'+spStyle+'>'+
         '<div class="modal-drag-handle" style="cursor:grab;touch-action:none;margin:-20px -20px 14px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,.12);">'+
@@ -908,7 +928,10 @@ function renderGame(){
         '</div>'+
         selectField('suggestPick','suspeito','Suspeito',SUSPEITOS)+
         selectField('suggestPick','arma','Arma',ARMAS)+
-        selectField('suggestPick','local','Cômodo',LOCAIS)+
+        '<label class="field-label">Cômodo</label>'+
+        '<div class="field-locked" style="padding:8px 10px;border-radius:6px;background:rgba(255,255,255,.06);margin-bottom:12px;">'+
+          esc(salaAtual || '—')+' <span style="opacity:.6;font-size:11px;">(a sala onde você está agora)</span>'+
+        '</div>'+
         '<div class="modal-actions"><button class="primary" onclick="__actions.makeSuggestion()">Registrar Palpite</button><button class="small" onclick="__actions.closeModals()">Cancelar</button></div>'+
       '</div>'+
     '</div>';

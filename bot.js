@@ -42,10 +42,152 @@
     "Kate Beckett", "Hercule P.", "Nero Wolfe", "Kinsey M."
   ];
 
+  // ---- Geometria do tabuleiro — precisa bater com board.js ----
+  // (usada só pra calcular caminhos; nada disso desenha nada na tela)
+  var ROOM_GRID = [
+    ['Hall','Sala de Estar','Salão de Festas'],
+    ['Biblioteca','Escritório','Sala de Jantar'],
+    ['Salão de Jogos','Sala de Música','Cozinha']
+  ];
+  var BLOCK = 4, GAP = 2, BORDER = 1;
+  var BOARD_SIZE = BORDER*2 + BLOCK*3 + GAP*2;
+  var CENTER_OFFSET = Math.floor(BLOCK/2);
+  // ordem EXATA do board.js — decide qual peão (slug) cada jogador controla
+  // pela posição no array de jogadores. Diferente da ordem de BOT_SUSPEITOS
+  // acima, que é só a ordem usada no mistério (main.js).
+  var BOARD_SUSPECTS = ["Prof. Black","Cel. Mostarda","Sr. Marinho","Dona Branca","Srta. Rosa","Dona Violeta"];
+
+  function slugifyBoard(s){
+    return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  }
+
+  function roomStartRow(rIdx){ return BORDER + rIdx*(BLOCK+GAP) + 1; }
+  function roomStartCol(cIdx){ return BORDER + cIdx*(BLOCK+GAP) + 1; }
+
+  function buildRoomMeta(){
+    var rooms = [], cellOwner = {}, doorOwner = {};
+    for(var ri=0; ri<3; ri++){
+      for(var ci=0; ci<3; ci++){
+        var name = ROOM_GRID[ri][ci];
+        var r0 = roomStartRow(ri), c0 = roomStartCol(ci);
+        var idx = rooms.length;
+        var doorSouth = { row: r0+BLOCK, col: c0+1 };
+        var doorSide = (ci===2)
+          ? { row: r0+BLOCK-1, col: c0-1 }
+          : { row: r0, col: c0+BLOCK };
+        rooms.push({ name:name, r0:r0, c0:c0, anchorRow:r0+CENTER_OFFSET, anchorCol:c0+CENTER_OFFSET, doors:[doorSouth, doorSide] });
+        doorOwner[doorSouth.row+','+doorSouth.col] = { name:name };
+        doorOwner[doorSide.row+','+doorSide.col] = { name:name };
+        for(var dr=0; dr<BLOCK; dr++){
+          for(var dc=0; dc<BLOCK; dc++){
+            cellOwner[(r0+dr)+','+(c0+dc)] = idx;
+          }
+        }
+      }
+    }
+    return { rooms:rooms, cellOwner:cellOwner, doorOwner:doorOwner };
+  }
+  var BOARD_META = buildRoomMeta();
+
+  function boardRoomAt(r,c){
+    var idx = BOARD_META.cellOwner[r+','+c];
+    return idx===undefined ? null : BOARD_META.rooms[idx];
+  }
+  function boardDoorAt(r,c){
+    return BOARD_META.doorOwner[r+','+c] || null;
+  }
+  function boardPodeEntrar(fromCell, toCell){
+    var fromRoom = boardRoomAt(fromCell.row, fromCell.col);
+    var toRoom = boardRoomAt(toCell.row, toCell.col);
+    if(toRoom){
+      if(fromRoom === toRoom) return true;
+      var fromDoor = boardDoorAt(fromCell.row, fromCell.col);
+      return !!(fromDoor && fromDoor.name === toRoom.name);
+    }
+    if(fromRoom){
+      var toDoor = boardDoorAt(toCell.row, toCell.col);
+      return !!(toDoor && toDoor.name === fromRoom.name);
+    }
+    return true;
+  }
+  function findBoardRoomByName(name){
+    var s = slugifyBoard(name||'');
+    for(var i=0;i<BOARD_META.rooms.length;i++){
+      if(slugifyBoard(BOARD_META.rooms[i].name)===s) return BOARD_META.rooms[i];
+    }
+    return null;
+  }
+
+  // ---- spawn padrão determinístico (precisa bater com board.js: mesmo
+  // código de sala => mesma posição inicial, pra todo mundo ver igual) ----
+  var CORRIDOR_CELLS = (function(){
+    var list = [];
+    for(var r=1; r<=BOARD_SIZE; r++){
+      for(var c=1; c<=BOARD_SIZE; c++){
+        if(!boardRoomAt(r,c)) list.push({row:r, col:c});
+      }
+    }
+    return list;
+  })();
+  function seedFromStr(str){
+    var h = 2166136261;
+    for(var i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = (h*16777619)>>>0; }
+    return h>>>0;
+  }
+  function nextRandSeed(seed){
+    seed ^= seed<<13; seed>>>=0; seed ^= seed>>17; seed ^= seed<<5; seed>>>=0;
+    return seed>>>0;
+  }
+  function defaultSpawnFor(code, slug){
+    var used = {}, seed = seedFromStr(code||'_sem-sala');
+    for(var i=0;i<BOARD_SUSPECTS.length;i++){
+      var s = slugifyBoard(BOARD_SUSPECTS[i]);
+      var cell = null;
+      for(var tries=0; tries<200 && CORRIDOR_CELLS.length; tries++){
+        seed = nextRandSeed(seed);
+        var cand = CORRIDOR_CELLS[seed % CORRIDOR_CELLS.length];
+        var k = cand.row+','+cand.col;
+        if(!used[k]){ used[k]=true; cell=cand; break; }
+      }
+      if(!cell) cell = CORRIDOR_CELLS[0] || {row:BOARD_SIZE, col:BOARD_SIZE};
+      if(s===slug) return cell;
+    }
+    return {row:BOARD_SIZE, col:BOARD_SIZE};
+  }
+
+  // BFS: caminho mais curto de "from" até uma célula-alvo, respeitando as
+  // regras de parede/porta. Devolve a lista de células do caminho (sem
+  // contar a célula inicial), ou null se não houver caminho.
+  function shortestPath(from, to){
+    var startKey = from.row+','+from.col, targetKey = to.row+','+to.col;
+    if(startKey===targetKey) return [];
+    var visited = {}; visited[startKey]=true;
+    var queue = [{cell:from, path:[]}];
+    var dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    while(queue.length){
+      var cur = queue.shift();
+      for(var i=0;i<dirs.length;i++){
+        var nr = cur.cell.row+dirs[i][0], nc = cur.cell.col+dirs[i][1];
+        if(nr<1||nr>BOARD_SIZE||nc<1||nc>BOARD_SIZE) continue;
+        var key = nr+','+nc;
+        if(visited[key]) continue;
+        var nextCell = {row:nr, col:nc};
+        if(!boardPodeEntrar(cur.cell, nextCell)) continue;
+        var novoPath = cur.path.concat([nextCell]);
+        if(key===targetKey) return novoPath;
+        visited[key]=true;
+        // não continuamos o BFS por dentro de uma sala (só a porta interessa como alvo)
+        if(boardRoomAt(nr,nc) && key!==targetKey) continue;
+        queue.push({cell:nextCell, path:novoPath});
+      }
+    }
+    return null;
+  }
+
   // ---- Groq (IA da sugestão) ----
   // Uso pessoal: chave direto no código, sem proxy. Gere a sua em
   // https://console.groq.com/keys
-  var GROQ_API_KEY = 'COLOQUE_SUA_CHAVE_AQUI';
+  var GROQ_API_KEY = '';
   var GROQ_MODEL = 'llama-3.3-70b-versatile';
   var GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -375,6 +517,55 @@
       });
     }
 
+    function boardPosCol(){ return db.collection('board_positions'); }
+
+    function loadBoardPositions(cb){
+      boardPosCol().doc(roomCode).get().then(function(snap){
+        var d = snap.exists ? snap.data() : {};
+        cb((d && d.pawns) || {});
+      }).catch(function(err){
+        console.warn('[bot] falha ao ler posições do tabuleiro:', err && err.code, err && err.message);
+        cb({});
+      });
+    }
+
+    function saveBoardPawnPos(slug, row, col){
+      var ref = boardPosCol().doc(roomCode);
+      var value = { row: row, col: col, at: Date.now() };
+      var dotField = {}; dotField['pawns.'+slug] = value;
+      ref.update(dotField).catch(function(err){
+        if(err && (err.code === 'not-found' || /No document to update/i.test(err.message||''))){
+          var nested = { pawns: {} }; nested.pawns[slug] = value;
+          ref.set(nested, {merge:true}).catch(function(err2){
+            console.warn('[bot] falha ao criar posição do peão:', err2 && err2.code, err2 && err2.message);
+          });
+        } else {
+          console.warn('[bot] falha ao salvar posição do peão:', err && err.code, err && err.message);
+        }
+      });
+    }
+
+    // qual peão (slug) do tabuleiro pertence a este jogador — segue a MESMA
+    // ordem posicional que o board.js usa (players[idx] <-> BOARD_SUSPECTS[idx])
+    function boardSlugForBot(botId){
+      var idx = -1;
+      for(var i=0;i<(room.players||[]).length;i++){
+        if(room.players[i].id===botId){ idx=i; break; }
+      }
+      if(idx<0 || idx>=BOARD_SUSPECTS.length) return null;
+      return slugifyBoard(BOARD_SUSPECTS[idx]);
+    }
+
+    function botRollDice(p, value){
+      return roomsCol().doc(roomCode).update({
+        diceValue: value,
+        diceRollId: Date.now()+'-'+Math.random().toString(36).slice(2,8),
+        diceBy: p.name,
+        diceAt: Date.now(),
+        moveBudget: { turnIndex: room.turnIndex, playerId: p.id, stepsLeft: value }
+      });
+    }
+
     function loadBotMemory(botId, cb){
       Promise.all([
         handsCol().doc(handKey(roomCode, botId)).get(),
@@ -411,33 +602,90 @@
       var p = playerById(botId);
       if(!p) return;
 
+      var slug = boardSlugForBot(botId);
+      var value = Math.floor(Math.random()*6)+1;
+
+      // regra: todo jogador (inclusive IA) precisa rolar o dado no turno
+      botRollDice(p, value).catch(function(err){
+        console.warn('[bot] falha ao rolar dado:', err && err.code, err && err.message);
+      });
+
       loadBotMemory(botId, function(mem){
         var faltamSuspeitos = BOT_SUSPEITOS.filter(function(c){ return !mem.conhecidoNao[c]; });
         var faltamArmas     = BOT_ARMAS.filter(function(c){ return !mem.conhecidoNao[c]; });
         var faltamLocais    = BOT_LOCAIS.filter(function(c){ return !mem.conhecidoNao[c]; });
-
         var resolvido = faltamSuspeitos.length===1 && faltamArmas.length===1 && faltamLocais.length===1;
 
-        if(resolvido){
-          fazerAcusacao(p, faltamSuspeitos[0], faltamArmas[0], faltamLocais[0]);
+        if(!slug){
+          setTimeout(function(){ passarVez(p); }, 1500);
           return;
         }
 
-        var logRecente = (room.log||[]).slice(-15).map(function(e){ return e.text; }).join('\n');
+        // sugere ou acusa usando a sala em que o bot está AGORA — nunca uma
+        // sala livre, igual à regra que vale pros jogadores humanos
+        function agirNaSala(roomName){
+          if(resolvido && faltamLocais[0]===roomName){
+            fazerAcusacao(p, faltamSuspeitos[0], faltamArmas[0], faltamLocais[0]);
+            return;
+          }
+          if(resolvido){
+            // certeza da solução, mas está na sala errada pra acusar — só passa
+            setTimeout(function(){ passarVez(p); }, 1500);
+            return;
+          }
+          var logRecente = (room.log||[]).slice(-15).map(function(e){ return e.text; }).join('\n');
+          var ctx = { botId: botId, faltamSuspeitos: faltamSuspeitos, faltamArmas: faltamArmas, faltamLocais: [roomName], logRecente: logRecente };
+          escolherSugestaoComIA(ctx, function(pick){
+            pick.local = roomName;
+            pick = evitarRepeticao(pick, botId, ctx); pick.local = roomName;
+            pick = talvezBlefar(pick, mem);           pick.local = roomName;
+            registrarSugestao(botId, pick);
+            fazerSugestao(p, pick);
+          });
+        }
 
-        var ctx = {
-          botId: botId,
-          faltamSuspeitos: faltamSuspeitos,
-          faltamArmas: faltamArmas,
-          faltamLocais: faltamLocais,
-          logRecente: logRecente
-        };
+        loadBoardPositions(function(pawnsPos){
+          var pos = pawnsPos[slug] || defaultSpawnFor(roomCode, slug);
+          var currentRoom = boardRoomAt(pos.row, pos.col);
 
-        escolherSugestaoComIA(ctx, function(pick){
-          pick = evitarRepeticao(pick, botId, ctx);
-          pick = talvezBlefar(pick, mem);
-          registrarSugestao(botId, pick);
-          fazerSugestao(p, pick);
+          if(currentRoom){
+            agirNaSala(currentRoom.name);
+            return;
+          }
+
+          // não está em nenhuma sala: escolhe pra onde andar (prioriza salas
+          // ainda não eliminadas; se já resolveu o caso, vai direto pra sala certa)
+          var alvoNomes = resolvido ? [faltamLocais[0]] : shuffle(faltamLocais);
+          var melhor = null;
+          for(var i=0;i<alvoNomes.length;i++){
+            var alvoRoom = findBoardRoomByName(alvoNomes[i]);
+            if(!alvoRoom) continue;
+            for(var d=0; d<alvoRoom.doors.length; d++){
+              var path = shortestPath(pos, alvoRoom.doors[d]);
+              if(path && (!melhor || path.length < melhor.path.length)){
+                melhor = { room: alvoRoom, path: path };
+              }
+            }
+          }
+
+          if(!melhor){
+            setTimeout(function(){ passarVez(p); }, 1500);
+            return;
+          }
+
+          if(melhor.path.length <= value){
+            // dá pra chegar até a porta e entrar na sala neste turno
+            saveBoardPawnPos(slug, melhor.room.anchorRow, melhor.room.anchorCol);
+            roomsCol().doc(roomCode).update({ 'moveBudget.stepsLeft': 0 }).catch(function(){});
+            setTimeout(function(){ agirNaSala(melhor.room.name); }, 1500);
+          } else {
+            // anda o quanto dá em direção à porta, mas não chega neste turno
+            var passos = melhor.path.slice(0, value);
+            var fim = passos[passos.length-1];
+            saveBoardPawnPos(slug, fim.row, fim.col);
+            roomsCol().doc(roomCode).update({ 'moveBudget.stepsLeft': 0 }).catch(function(){});
+            setTimeout(function(){ passarVez(p); }, 1500);
+          }
         });
       });
     }

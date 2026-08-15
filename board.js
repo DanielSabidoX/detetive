@@ -172,6 +172,21 @@
     document.head.appendChild(st);
   })();
 
+  (function injectMoveStyles(){
+    if(document.getElementById('tab-move-styles')) return;
+    var st = document.createElement('style');
+    st.id = 'tab-move-styles';
+    st.textContent =
+      '.tab-cell.reachable{cursor:pointer;box-shadow:inset 0 0 0 2px #5fbf5f;background:rgba(95,191,95,.25)}'+
+      '.tab-cell.reachable:hover{background:rgba(95,191,95,.45)}'+
+      '.tab-move-controls{margin:8px 0;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.06);font-size:12px}'+
+      '.tab-move-hint{opacity:.85;margin-bottom:6px}'+
+      '.tab-move-btn{display:block;width:100%;margin-top:4px;padding:6px 10px;border-radius:6px;'+
+      'border:1px solid rgba(212,175,102,.5);background:transparent;color:inherit;cursor:pointer;font-size:12px}'+
+      '.tab-move-btn:hover{background:rgba(212,175,102,.15)}';
+    document.head.appendChild(st);
+  })();
+
   function slugify(s){
     return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
   }
@@ -265,6 +280,31 @@
   function doorAt(r,c){
     return ROOM_META.doorOwner[r+','+c] || null;
   }
+  // identifica a posição da porta em relação ao bloco da sala, pra
+  // diferenciar as duas portas quando ambas pertencem à mesma sala
+  function doorLabel(room, door){
+    if(door.row > room.r0 + BLOCK - 1) return 'porta de baixo';
+    if(door.col < room.c0) return 'porta da esquerda';
+    if(door.col > room.c0 + BLOCK - 1) return 'porta da direita';
+    return 'porta';
+  }
+  // Regra de parede/porta: só se pode entrar numa sala vindo exatamente da
+  // porta daquela sala, e só se pode sair pisando exatamente na porta.
+  // Movimento corredor<->corredor (inclui portas) é sempre livre.
+  function podeEntrar(fromCell, toCell){
+    var fromRoom = roomAt(fromCell.row, fromCell.col);
+    var toRoom = roomAt(toCell.row, toCell.col);
+    if(toRoom){
+      if(fromRoom === toRoom) return true;
+      var fromDoor = doorAt(fromCell.row, fromCell.col);
+      return !!(fromDoor && fromDoor.name === toRoom.name);
+    }
+    if(fromRoom){
+      var toDoor = doorAt(toCell.row, toCell.col);
+      return !!(toDoor && toDoor.name === fromRoom.name);
+    }
+    return true;
+  }
   function clampCell(r,c){
     r = Math.max(1, Math.min(SIZE, Math.round(r)));
     c = Math.max(1, Math.min(SIZE, Math.round(c)));
@@ -315,6 +355,7 @@
           '</label>'+
         '</div>'+
         '<div class="tab-sync-note" hidden>Zoom sincronizado com todos os jogadores</div>'+
+        '<div class="tab-move-controls" hidden></div>'+
         '<div class="tab-board-wrap"></div>'+
         '<div class="tab-legend"></div>'+
       
@@ -327,6 +368,7 @@
     var adminEl   = host.querySelector('.tab-admin');
     var syncCheck = host.querySelector('.tab-sync-check');
     var syncNote  = host.querySelector('.tab-sync-note');
+    var moveControlsEl = host.querySelector('.tab-move-controls');
     var boardWrap = host.querySelector('.tab-board-wrap');
     var legendEl  = host.querySelector('.tab-legend');
 
@@ -382,6 +424,7 @@
     // ---------- estado ----------
     var roomCode = null;
     var players = [];       // [{id,name,eliminated}]
+    var roomData = null;    // sala completa (turnOrder, turnIndex, phase, moveBudget...)
     var pawns = {};         // playerId -> {row,col}
     var weapons = {};       // weaponSlug -> {row,col}
     var cellPx = 26;        // recalculado a cada render
@@ -389,6 +432,65 @@
     var draggingPawnId = null;
     var boardEl = null;
     var viewportEl = null;
+
+    function activePlayerId(){
+      if(!roomData) return null;
+      var order = (roomData.turnOrder||[]).filter(function(id){
+        var p = players.filter(function(pp){ return pp.id===id; })[0];
+        return p && !p.eliminated;
+      });
+      if(!order.length) return null;
+      return order[roomData.turnIndex % order.length];
+    }
+    function isMyTurnBoard(){
+      var s = getSession();
+      return !!(s && s.pid && roomData && roomData.phase==='playing' && activePlayerId()===s.pid);
+    }
+    function myPlayerId(){
+      var s = getSession();
+      return s ? s.pid : null;
+    }
+    function slugForPlayerId(pid){
+      for(var i=0;i<players.length;i++){
+        if(players[i].id===pid && i<SUSPECTS.length) return slugify(SUSPECTS[i]);
+      }
+      return null;
+    }
+    function myMoveBudget(){
+      var s = getSession();
+      var mb = roomData && roomData.moveBudget;
+      if(!mb || !roomData || !s || !s.pid) return 0;
+      if(mb.turnIndex !== roomData.turnIndex) return 0;
+      if(mb.playerId !== s.pid) return 0;
+      return mb.stepsLeft || 0;
+    }
+    function spendStep(){
+      if(!roomCode || typeof db === 'undefined' || !roomData) return;
+      var left = Math.max(0, myMoveBudget()-1);
+      db.collection('rooms').doc(roomCode).update({
+        'moveBudget.stepsLeft': left
+      }).catch(function(err){
+        console.warn('[tabuleiro] falha ao gastar passo:', err && err.code, err && err.message);
+      });
+    }
+    function endMovement(){
+      if(!roomCode || typeof db === 'undefined') return;
+      db.collection('rooms').doc(roomCode).update({
+        'moveBudget.stepsLeft': 0
+      }).catch(function(){});
+    }
+
+    // Deixa o main.js saber em qual sala (se houver) o peão de um jogador
+    // está agora, pra travar "Fazer Palpite"/"Acusação Final" fora de salas.
+    window.boardCurrentRoomOf = function(playerId){
+      var slug = slugForPlayerId(playerId);
+      if(!slug) return null;
+      var idx = -1;
+      for(var i=0;i<players.length;i++){ if(players[i].id===playerId){ idx=i; break; } }
+      var pos = pawns[slug] || defaultSpawn(idx, slug);
+      var room = roomAt(pos.row, pos.col);
+      return room ? room.name : null;
+    };
 
     // ---------- zoom/pan estilo Google Maps ----------
     var ZOOM_KEY = 'casoArquivado_tabuleiro_zoom_v1';
@@ -535,12 +637,15 @@
 
       // arrastar o mapa com o mouse/dedo (as peças param a propagação, então continuam arrastáveis)
       var panning = false, sx = 0, sy = 0, spx = 0, spy = 0, pid = null;
+      var downTarget = null, downX = 0, downY = 0;
+      var TAP_THRESHOLD = 8; // px — abaixo disso, conta como clique, não arrasto
       boardWrap.addEventListener('pointerdown', function(e){
         if(!boardEl) return;
         if(e.button !== 0 && e.pointerType === 'mouse') return;
         if(e.target.closest && e.target.closest('.tab-zoom-controls')) return;
         panning = true; pid = e.pointerId;
         sx = e.clientX; sy = e.clientY; spx = panX; spy = panY;
+        downTarget = e.target; downX = e.clientX; downY = e.clientY;
         boardWrap.classList.add('panning');
         boardWrap.setPointerCapture && boardWrap.setPointerCapture(e.pointerId);
       });
@@ -556,9 +661,21 @@
         panning = false; pid = null;
         boardWrap.classList.remove('panning');
         saveZoom();
+
+        // não foi um arrasto de verdade (moveu menos que TAP_THRESHOLD): é um
+        // clique. Se começou numa célula de corredor/porta, tenta mover o peão.
+        if(downTarget && e && typeof e.clientX==='number'){
+          var moved = Math.hypot(e.clientX-downX, e.clientY-downY);
+          if(moved < TAP_THRESHOLD && downTarget.classList && downTarget.classList.contains('tab-cell')){
+            var rr = parseInt(downTarget.dataset.row,10), cc = parseInt(downTarget.dataset.col,10);
+            tryStepTo(rr, cc);
+          }
+        }
+        downTarget = null;
       }
       boardWrap.addEventListener('pointerup', endPan);
       boardWrap.addEventListener('pointercancel', endPan);
+
 
       // ---- pinça com dois dedos para zoom (Touch Events puros — não depende
       // de pointerdown chegar até aqui, então funciona mesmo se o dedo tocar
@@ -927,9 +1044,10 @@
           el.style.background = slot.color;
           el.style.color = pawnTextColor(slot.color);
           el.textContent = slot.owner ? playerInitial(slot.owner.name) : '';
-          el.title = slot.owner ? (slot.suspectName+' — '+slot.owner.name) : (slot.suspectName+' — sem jogador (mova manualmente)');
+          el.title = slot.owner ? (slot.suspectName+' — '+slot.owner.name) : (slot.suspectName+' — sem jogador');
           el.dataset.slug = slot.slug;
-          attachDrag(el, slot.slug, 'pawns');
+          // o peão não é mais arrastável livremente: movimento agora segue
+          // as regras de dado/porta (ver tryStepTo / enterRoom / exitRoom)
           boardEl.appendChild(el);
         });
       });
@@ -1002,6 +1120,157 @@
       }
       el.addEventListener('pointerup', finish);
       el.addEventListener('pointercancel', finish);
+    }
+
+    // ===== Movimentação passo a passo (regrada pelo dado) =====
+
+    // tenta mover o MEU peão da célula atual para uma célula de corredor/porta
+    // adjacente (1 passo). Só funciona se: é minha vez, ainda tenho passos,
+    // meu peão não está dentro de uma sala agora, e a célula de destino é
+    // ortogonalmente adjacente e liberada pelas regras de parede/porta.
+    function tryStepTo(row, col){
+      if(!isMyTurnBoard() || myMoveBudget()<=0) return;
+      var slug = slugForPlayerId(myPlayerId());
+      if(!slug) return;
+
+      var idx = -1;
+      for(var i=0;i<players.length;i++){ if(players[i].id===myPlayerId()){ idx=i; break; } }
+      var pos = pawns[slug] || defaultSpawn(idx, slug);
+
+      // já está dentro de uma sala: movimento de corredor não se aplica
+      // (use os botões "Sair pela porta X" em renderMoveControls)
+      if(roomAt(pos.row, pos.col)) return;
+
+      var dr = Math.abs(row-pos.row), dc = Math.abs(col-pos.col);
+      var adjacente = (dr+dc===1);
+      if(!adjacente) return;
+      if(roomAt(row,col)) return; // clique em sala: use o botão "Entrar" ao pisar na porta
+      if(!podeEntrar(pos, {row:row,col:col})) return;
+
+      pawns[slug] = {row:row, col:col};
+      renderPawns();
+      savePosition('pawns', slug, row, col);
+      spendStep();
+      renderMoveControls();
+    }
+
+    // entra na sala cuja porta está sob o meu peão agora, indo para a célula
+    // âncora (central) da sala. Consome o restante dos passos do turno —
+    // igual ao Detetive/Clue original: entrar numa sala encerra o movimento.
+    function enterRoom(){
+      if(!isMyTurnBoard() || myMoveBudget()<=0) return;
+      var slug = slugForPlayerId(myPlayerId());
+      if(!slug) return;
+      var idx = -1;
+      for(var i=0;i<players.length;i++){ if(players[i].id===myPlayerId()){ idx=i; break; } }
+      var pos = pawns[slug] || defaultSpawn(idx, slug);
+      var door = doorAt(pos.row, pos.col);
+      if(!door) return;
+      var room = findRoomByName(door.name);
+      if(!room) return;
+
+      var cell = freeInteriorCell(room, []);
+      pawns[slug] = {row:cell.row, col:cell.col};
+      renderPawns();
+      savePosition('pawns', slug, cell.row, cell.col);
+      endMovement();
+      renderMoveControls();
+    }
+
+    // sai da sala onde meu peão está agora, pisando exatamente numa das
+    // portas daquela sala. Consome 1 passo, como um movimento normal.
+    function exitRoom(doorRow, doorCol){
+      if(!isMyTurnBoard() || myMoveBudget()<=0) return;
+      var slug = slugForPlayerId(myPlayerId());
+      if(!slug) return;
+      var idx = -1;
+      for(var i=0;i<players.length;i++){ if(players[i].id===myPlayerId()){ idx=i; break; } }
+      var pos = pawns[slug] || defaultSpawn(idx, slug);
+      var myRoom = roomAt(pos.row, pos.col);
+      if(!myRoom) return;
+      var door = doorAt(doorRow, doorCol);
+      if(!door || door.name !== myRoom.name) return;
+
+      pawns[slug] = {row:doorRow, col:doorCol};
+      renderPawns();
+      savePosition('pawns', slug, doorRow, doorCol);
+      spendStep();
+      renderMoveControls();
+    }
+
+    // destaca no tabuleiro as células de corredor/porta que o jogador pode
+    // clicar agora (1 passo de distância, respeitando as regras de parede)
+    function highlightReachableCells(){
+      if(!boardEl) return;
+      var old = boardEl.querySelectorAll('.tab-cell.reachable');
+      for(var i=0;i<old.length;i++){ old[i].classList.remove('reachable'); }
+
+      if(!isMyTurnBoard() || myMoveBudget()<=0) return;
+      var slug = slugForPlayerId(myPlayerId());
+      if(!slug) return;
+      var idx = -1;
+      for(var k=0;k<players.length;k++){ if(players[k].id===myPlayerId()){ idx=k; break; } }
+      var pos = pawns[slug] || defaultSpawn(idx, slug);
+      if(roomAt(pos.row, pos.col)) return; // dentro de sala usa os botões, não o grid
+
+      var vizinhos = [{r:pos.row-1,c:pos.col},{r:pos.row+1,c:pos.col},{r:pos.row,c:pos.col-1},{r:pos.row,c:pos.col+1}];
+      vizinhos.forEach(function(v){
+        if(v.r<1||v.r>SIZE||v.c<1||v.c>SIZE) return;
+        if(roomAt(v.r,v.c)) return; // sala: entra-se pelo botão, não pelo grid
+        if(!podeEntrar(pos, {row:v.r,col:v.c})) return;
+        var target = boardEl.querySelector('[data-row="'+v.r+'"][data-col="'+v.c+'"]');
+        if(target) target.classList.add('reachable');
+      });
+    }
+
+    // painel textual: quantos passos faltam, e botões de entrar/sair de sala
+    // quando aplicável (a interação principal de andar é clicar no tabuleiro)
+    function renderMoveControls(){
+      if(!moveControlsEl) return;
+      if(!roomData || roomData.phase!=='playing' || !isMyTurnBoard()){
+        moveControlsEl.hidden = true;
+        moveControlsEl.innerHTML = '';
+        highlightReachableCells();
+        return;
+      }
+
+      var slug = slugForPlayerId(myPlayerId());
+      var idx = -1;
+      for(var i=0;i<players.length;i++){ if(players[i].id===myPlayerId()){ idx=i; break; } }
+      var pos = slug ? (pawns[slug] || defaultSpawn(idx, slug)) : null;
+      var budget = myMoveBudget();
+      var myRoom = pos ? roomAt(pos.row, pos.col) : null;
+      var onDoor = pos ? doorAt(pos.row, pos.col) : null;
+
+      var html = '';
+      if(budget<=0){
+        html += '<div class="tab-move-hint">Role o dado para poder se mover.</div>';
+      } else if(myRoom){
+        html += '<div class="tab-move-hint">Você está em <b>'+escHtml(myRoom.name)+'</b>. Passos restantes: '+budget+'.</div>';
+        myRoom.doors.forEach(function(d){
+          html += '<button type="button" class="tab-move-btn" data-exit="'+d.row+','+d.col+'">Sair pela '+escHtml(doorLabel(myRoom, d))+'</button>';
+        });
+      } else if(onDoor){
+        html += '<div class="tab-move-hint">Passos restantes: '+budget+'.</div>';
+        html += '<button type="button" class="tab-move-btn" data-enter="1">Entrar em '+escHtml(onDoor.name)+'</button>';
+      } else {
+        html += '<div class="tab-move-hint">Passos restantes: '+budget+'. Clique numa célula destacada para andar.</div>';
+      }
+
+      moveControlsEl.hidden = false;
+      moveControlsEl.innerHTML = html;
+
+      var enterBtn = moveControlsEl.querySelector('[data-enter]');
+      if(enterBtn) enterBtn.addEventListener('click', enterRoom);
+      var exitBtns = moveControlsEl.querySelectorAll('[data-exit]');
+      exitBtns.forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var parts = this.getAttribute('data-exit').split(',');
+          exitRoom(parseInt(parts[0],10), parseInt(parts[1],10));
+        });
+      });
+
+      highlightReachableCells();
     }
 
     function savePosition(kind, slug, row, col){
@@ -1132,10 +1401,12 @@
       if(!code || typeof db === 'undefined'){ return; }
       unsubRoomRead = db.collection('rooms').doc(code).onSnapshot(function(snap){
         var d = snap.exists ? snap.data() : null;
+        roomData = d;
         players = (d && d.players) ? d.players : [];
         isHost = detectHost(d);
         renderSyncUi();
         fullRender();
+        renderMoveControls();
       }, function(err){
         console.warn('[tabuleiro] falha ao ler jogadores da sala:', err && err.code, err && err.message);
       });
@@ -1160,6 +1431,7 @@
 
         renderPawns();
         renderWeapons();
+        renderMoveControls();
 
         // zoom automático quando qualquer jogador faz palpite/acusação
         var f = d && d.focus;
@@ -1187,7 +1459,7 @@
 
     function deactivate(){
       roomCode = null;
-      players = []; pawns = {}; weapons = {};
+      players = []; pawns = {}; weapons = {}; roomData = null;
       isHost = false; zoomSyncOn = false; lastFocusAt = null;
       if(pushTimer){ clearTimeout(pushTimer); pushTimer = null; }
       if(unsubRoomRead){ unsubRoomRead(); unsubRoomRead=null; }
@@ -1197,6 +1469,8 @@
       boardWrap.innerHTML = '<div class="tab-empty">Entre em uma sala para ver o tabuleiro.</div>';
       boardEl = null; viewportEl = null;
       legendEl.innerHTML = '';
+      moveControlsEl.hidden = true;
+      moveControlsEl.innerHTML = '';
       renderSyncUi();
     }
 
