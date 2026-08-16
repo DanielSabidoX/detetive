@@ -115,6 +115,24 @@ function handKey(code,pid){ return code+'_'+pid; }
 
 // ===== Sessão local (isolada — permite voltar pro jogo após F5) =====
 var SESSION_KEY = 'casoArquivado_session_v1';
+
+// id único deste navegador/dispositivo — gerado uma vez e reaproveitado.
+// Não depende do nome digitado, então dois jogadores diferentes usando o
+// mesmo nome (em computadores diferentes) nunca colidem no mesmo "pid".
+var DEVICE_ID_KEY = 'casoArquivado_device_id_v1';
+function getDeviceId(){
+  try{
+    var id = localStorage.getItem(DEVICE_ID_KEY);
+    if(!id){
+      id = 'd'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  }catch(e){
+    return 'd'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+  }
+}
+
 function saveSession(code, pid, name){
   try{
     localStorage.setItem(SESSION_KEY, JSON.stringify({code:code, pid:pid, name:name}));
@@ -153,16 +171,26 @@ function nextNoteStatus(status){
 }
 // ===== fim helpers de anotações =====
 
+// sorteia o personagem (suspeito) que um jogador vai controlar — fica
+// gravado no próprio jogador, então tanto o mistério quanto o peão no
+// tabuleiro sempre concordam sobre quem é quem.
+function pickRandomSuspect(existingPlayers){
+  var usados = (existingPlayers||[]).map(function(p){ return p.suspect; }).filter(Boolean);
+  var livres = SUSPEITOS.filter(function(s){ return usados.indexOf(s) < 0; });
+  var pool = livres.length ? livres : SUSPEITOS; // mais jogadores que suspeitos: permite repetir
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
 async function createRoom(){
   var name = document.getElementById('name-input').value.trim();
   if(!name){ state.error='Digite seu nome de detetive.'; render(); return; }
   var code = genCode();
-  var pid = code+'-'+slugify(name);
+  var pid = code+'-'+getDeviceId();
   var room = {
     code: code,
     hostId: pid,
     phase: 'lobby',
-    players: [{id:pid, name:name, eliminated:false}],
+    players: [{id:pid, name:name, eliminated:false, suspect: pickRandomSuspect([])}],
     turnOrder: [],
     turnIndex: 0,
     secret: null,
@@ -193,7 +221,7 @@ async function joinRoom(){
   var name = document.getElementById('join-name-input').value.trim();
   var code = document.getElementById('join-code-input').value.trim().toUpperCase();
   if(!name || !code){ state.joinError='Preencha seu nome e o código do caso.'; render(); return; }
-  var pid = code+'-'+slugify(name);
+  var pid = code+'-'+getDeviceId();
   try{
     var snap = await roomsCol().doc(code).get();
     if(!snap.exists){ state.joinError='Caso não encontrado. Confira o código.'; render(); return; }
@@ -207,8 +235,9 @@ async function joinRoom(){
     var isSpec = (room.spectators||[]).some(function(p){return p.id===pid;});
     if(!isPlayer && !isSpec){
       if(room.phase==='lobby'){
+        var meuSuspeito = pickRandomSuspect(room.players);
         var updates = {
-          players: fv().arrayUnion({id:pid, name:name, eliminated:false}),
+          players: fv().arrayUnion({id:pid, name:name, eliminated:false, suspect: meuSuspeito}),
           log: fv().arrayUnion({text:name+' entrou no caso.', type:'system', ts:nowTs()})
         };
         var becameHost = !room.hostId;
@@ -221,7 +250,7 @@ async function joinRoom(){
         }
         await roomsCol().doc(code).update(updates);
         room = Object.assign({}, room, {
-          players: room.players.concat([{id:pid, name:name, eliminated:false}]),
+          players: room.players.concat([{id:pid, name:name, eliminated:false, suspect: meuSuspeito}]),
           hostId: becameHost ? pid : room.hostId
         });
         isPlayer = true;
@@ -752,7 +781,7 @@ function renderLobby(){
     '<div class="players-list">'+
       players.map(function(p, idx){
         var cls = 'player-row'+(p.id===state.playerId?' you':'');
-        var pieceName = SUSPEITOS[idx];
+        var pieceName = p.suspect;
         return '<div class="'+cls+'">'+
           '<span>'+esc(p.name)+(p.id===state.playerId?' (você)':'')+(pieceName?' — <span class="piece-name">'+esc(pieceName)+'</span>':'')+'</span>'+
           (p.id===room.hostId ? '<span class="badge host">Anfitrião</span>' : '')+
@@ -803,7 +832,7 @@ function renderGame(){
         if(p.eliminated) cls+=' eliminated';
         var isTurnPlayer = !ended && currentTurnName()===p.name;
         if(isTurnPlayer) cls+=' turn';
-        var pieceName = SUSPEITOS[idx]; // mesma ordem usada no tabuleiro pra associar peão
+        var pieceName = p.suspect; // mesmo valor sorteado e gravado no jogador, usado igual no tabuleiro
         return '<div class="'+cls+'">'+
           '<span>'+esc(p.name)+(p.id===state.playerId?' (você)':'')+(pieceName?' — <span class="piece-name">'+esc(pieceName)+'</span>':'')+'</span>'+
           '<span>'+(isTurnPlayer?'<span class="badge turnb">Na vez</span>':'')+(p.eliminated?'<span class="badge">Eliminado</span>':'')+'</span>'+

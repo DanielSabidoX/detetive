@@ -14,8 +14,6 @@
 */
 (function(){
   var SESSION_KEY = 'casoArquivado_session_v1';
-  var PANEL_POS_KEY = 'casoArquivado_admin_pos_v1';
-  var PANEL_COLLAPSED_KEY = 'casoArquivado_admin_collapsed_v1';
 
   function getSession(){
     try{ return JSON.parse(localStorage.getItem(SESSION_KEY)) || null; }catch(e){ return null; }
@@ -64,55 +62,10 @@
     var toggleBtn = host.querySelector('.adm-toggle');
     var contentEl = host.querySelector('.adm-content');
 
-    // ---------- posição/estado salvo do painel ----------
-    try{
-      var savedPos = JSON.parse(localStorage.getItem(PANEL_POS_KEY));
-      if(savedPos && typeof savedPos.left === 'number'){
-        host.style.left = savedPos.left + 'px';
-        host.style.top  = savedPos.top + 'px';
-        host.style.bottom = 'auto';
-      }
-    }catch(e){}
-    try{
-      if(localStorage.getItem(PANEL_COLLAPSED_KEY) === '1') host.classList.add('collapsed');
-    }catch(e){}
-
+    // ---------- botão "_" fecha o painel e volta pra barra de abas ----------
     toggleBtn.addEventListener('click', function(){
-      host.classList.toggle('collapsed');
-      try{ localStorage.setItem(PANEL_COLLAPSED_KEY, host.classList.contains('collapsed') ? '1' : '0'); }catch(e){}
+      if(typeof window.closePanelNav === 'function') window.closePanelNav();
     });
-
-    // ---------- arrastar o painel pela barra superior ----------
-    (function panelDrag(){
-      var dragging=false, sx=0, sy=0, ox=0, oy=0;
-      handle.addEventListener('pointerdown', function(e){
-        if(e.target === toggleBtn) return;
-        var r = host.getBoundingClientRect();
-        host.style.left = r.left+'px'; host.style.top = r.top+'px'; host.style.bottom = 'auto';
-        dragging = true; sx=e.clientX; sy=e.clientY; ox=r.left; oy=r.top;
-        host.classList.add('dragging-panel');
-        handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
-      });
-      handle.addEventListener('pointermove', function(e){
-        if(!dragging) return;
-        var dx=e.clientX-sx, dy=e.clientY-sy;
-        var left = Math.min(Math.max(0, ox+dx), window.innerWidth-60);
-        var top  = Math.min(Math.max(0, oy+dy), window.innerHeight-40);
-        host.style.left = left+'px'; host.style.top = top+'px';
-      });
-      function stop(){
-        if(!dragging) return;
-        dragging=false;
-        host.classList.remove('dragging-panel');
-        try{
-          localStorage.setItem(PANEL_POS_KEY, JSON.stringify({
-            left: parseFloat(host.style.left)||0, top: parseFloat(host.style.top)||0
-          }));
-        }catch(e){}
-      }
-      handle.addEventListener('pointerup', stop);
-      handle.addEventListener('pointercancel', stop);
-    })();
 
     // ---------- estado ----------
     var roomCode = null;

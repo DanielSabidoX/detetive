@@ -1,0 +1,107 @@
+/* ===== Navegação mobile — Caso Arquivado =====
+   Só entra em ação em telas pequenas (mesmo breakpoint que os painéis já
+   usam: max-width 640px). No desktop isso não muda nada — os painéis
+   continuam flutuantes e arrastáveis como sempre.
+
+   Estratégia: em vez de vários painéis soltos competindo por espaço numa
+   tela pequena, eles ficam escondidos por padrão e só aparecem em tela
+   cheia (menos a faixa da barra de abas) quando o jogador toca na aba
+   correspondente.
+
+   Uso: <link rel="stylesheet" href="mobile-nav.css"> (depois de theme.css) */
+
+.mobile-tabbar{
+  display: none; /* só aparece no media query abaixo */
+}
+
+@media (max-width: 640px){
+
+  /* dá espaço no fim da página pra barra de abas não tampar o conteúdo */
+  body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+
+  /* ---- barra de abas fixa no rodapé ---- */
+  .mobile-tabbar{
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: var(--z-mobile-tabbar, 10035);
+    background: var(--floating-bg, rgba(20,16,12,.96));
+    border-top: 1px solid var(--floating-border, rgba(212,175,102,.45));
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    backdrop-filter: blur(6px);
+  }
+  .mobile-tab{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    color: var(--muted, #a89a7d);
+    font-family: 'Oswald', sans-serif;
+    font-size: 9.5px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 6px 2px;
+    border-radius: var(--radius-sm, 3px);
+    cursor: pointer;
+  }
+  .mobile-tab .mobile-tab-icon{
+    font-size: 18px;
+    line-height: 1;
+  }
+  .mobile-tab.active{
+    color: var(--gold-bright, #d9a44f);
+  }
+  .mobile-tab[hidden]{ display: none; }
+
+  /* ---- painéis em modo "tela cheia" quando abertos pela aba ----
+     sobrescreve a posição/tamanho normal (canto pequeno e arrastável)
+     só enquanto tiverem a classe .mobile-open */
+  #dado.mobile-open,
+  #tabuleiro-painel.mobile-open,
+  #voz-painel.mobile-open,
+  #bot-painel.mobile-open,
+  #admin-painel.visible.mobile-open,
+  #solucao-painel.mobile-open{
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important; left: 0 !important; right: 0 !important;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    z-index: var(--z-mobile-sheet, 10030) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    transform: none !important; /* ignora qualquer posição arrastada salva */
+  }
+  /* dentro do modo tela cheia, o cabeçalho não precisa mais ser arrastável */
+  #dado.mobile-open .dice-handle,
+  #tabuleiro-painel.mobile-open .tab-handle,
+  #voz-painel.mobile-open .voz-handle,
+  #bot-painel.mobile-open .bot-handle,
+  #admin-painel.mobile-open .adm-handle,
+  #solucao-painel.mobile-open .sol-handle{
+    cursor: default;
+    touch-action: auto;
+  }
+
+  /* enquanto nenhuma aba está aberta, garante que os painéis fiquem
+     realmente escondidos (não só pequenos no canto) */
+  #dado:not(.mobile-open),
+  #tabuleiro-painel:not(.mobile-open),
+  #voz-painel:not(.mobile-open),
+  #bot-painel:not(.mobile-open),
+  #solucao-painel:not(.mobile-open){
+    display: none !important;
+  }
+  #admin-painel.visible:not(.mobile-open){
+    display: none !important;
+  }
+}

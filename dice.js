@@ -59,15 +59,10 @@
     var btn    = el.querySelector('.dice-btn');
     var syncEl = el.querySelector('.dice-sync');
 
-    // ---------- minimizar/expandir (preferência salva só neste navegador) ----------
-    var COLLAPSED_KEY = 'casoArquivado_dado_collapsed_v1';
-    try{
-      if(localStorage.getItem(COLLAPSED_KEY) === '1') el.classList.add('collapsed');
-    }catch(e){}
+    // ---------- botão "_" fecha o painel e volta pra barra de abas ----------
     toggleBtn.addEventListener('click', function(evt){
       evt.stopPropagation();
-      el.classList.toggle('collapsed');
-      try{ localStorage.setItem(COLLAPSED_KEY, el.classList.contains('collapsed') ? '1' : '0'); }catch(e){}
+      if(typeof window.closePanelNav === 'function') window.closePanelNav();
     });
 
     var rolling = false, spins = 0;

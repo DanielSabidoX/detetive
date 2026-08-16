@@ -77,18 +77,8 @@ linear-gradient(
 #676f72 100%);
   /* ===== fim das cores das salas ===== */
 
-  position: fixed;
-  top: 90px;
-  left: 24px;
-  z-index: 9998;
-  width: 380px;
-  max-width: calc(100vw - 20px);
   box-sizing: border-box;
-  border: 1px solid rgba(212,175,102,.45);
-  border-radius: 14px;
-  background: rgba(20,16,12,.94);
-  box-shadow: 0 14px 34px rgba(0,0,0,.55);
-  backdrop-filter: blur(4px);
+  background: var(--floating-bg, rgba(20,16,12,.94));
   user-select: none;
   font-family: 'Courier Prime', monospace;
   color: var(--paper, #ece0c4);
@@ -167,15 +157,11 @@ linear-gradient(
     outline-offset:-6px;
 }
 
-/* barra de arrastar o painel inteiro */
 #tabuleiro-painel .tab-handle{
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 14px;
-  cursor: grab;
   border-bottom: 1px solid rgba(212,175,102,.25);
-  touch-action: none;   
 }
-#tabuleiro-painel.dragging-panel .tab-handle{ cursor: grabbing; }
 #tabuleiro-painel .tab-handle h3{
   margin:0;font-family:'Oswald',sans-serif;font-size:14px;
   letter-spacing:.15em;text-transform:uppercase;color:var(--gold,#b8863b);
@@ -185,12 +171,11 @@ linear-gradient(
   font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
   padding:4px 10px;border-radius:3px;cursor:pointer;
 }
-#tabuleiro-painel .tab-toggle:hover{background:var(--gold,#b8863b);color:#1a1509;}
+#tabuleiro-painel .tab-toggle:hover{background:var(--gold,#b8863b);color:var(--ink-on-gold, #1a1509);}
 
 #tabuleiro-painel .tab-body{
   padding: 14px;
 }
-#tabuleiro-painel.collapsed .tab-body{ display:none; }
 
 #tabuleiro-painel .tab-status{
   font-size: 10px;letter-spacing:.15em;text-transform:uppercase;
@@ -352,9 +337,6 @@ linear-gradient(
   margin-top: 10px;
 }
 
-@media (max-width: 640px){
-  #tabuleiro-painel{ width: 300px; top: 70px; left: 10px; }
-}
 
 
 /* ===== Zoom e arrasto do mapa (estilo Google Maps) ===== */
@@ -394,7 +376,7 @@ linear-gradient(
   border-radius: 4px; cursor: pointer; padding: 0;
 }
 #tabuleiro-painel .tab-zoom-controls button:hover{
-  background: var(--gold,#b8863b); color: #1a1509;
+  background: var(--gold,#b8863b); color: var(--ink-on-gold, #1a1509);
 }
 
 .weapon-svg{

@@ -1,0 +1,113 @@
+/* ===== Navegação por abas — Caso Arquivado =====
+   Substitui os painéis flutuantes/arrastáveis por um sistema único de
+   abas: só um painel fica visível por vez, sempre em tela cheia (menos
+   a faixa da barra de abas). Vale igual pra PC e celular.
+
+   Uso: <link rel="stylesheet" href="panel-nav.css"> (depois de theme.css) */
+
+/* dá espaço no fim da página pra barra de abas não tampar o conteúdo */
+body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+
+/* ---- barra de abas fixa no rodapé ---- */
+.panel-tabbar{
+  display: flex;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: var(--z-tabbar, 10035);
+  background: var(--floating-bg, rgba(20,16,12,.96));
+  border-top: 1px solid var(--floating-border, rgba(212,175,102,.45));
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  backdrop-filter: blur(6px);
+  max-width: 640px;
+  margin: 0 auto;
+}
+.panel-tab{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  color: var(--muted, #a89a7d);
+  font-family: 'Oswald', sans-serif;
+  font-size: 9.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 6px 2px;
+  border-radius: var(--radius-sm, 3px);
+  cursor: pointer;
+}
+.panel-tab .panel-tab-icon{
+  font-size: 18px;
+  line-height: 1;
+}
+.panel-tab.active{
+  color: var(--gold-bright, #d9a44f);
+}
+.panel-tab[hidden]{ display: none; }
+
+@media (min-width: 641px){
+  /* no desktop a barra fica centralizada, não precisa ocupar a tela toda */
+  .panel-tabbar{ border-radius: var(--radius-lg, 14px) var(--radius-lg, 14px) 0 0; bottom: 0; }
+}
+
+/* ---- painéis: escondidos por padrão, tela cheia quando abertos ---- */
+#dado, #tabuleiro-painel, #solucao-painel, #voz-painel, #bot-painel, #admin-painel{
+  display: none !important;
+}
+#dado.panel-open,
+#tabuleiro-painel.panel-open,
+#voz-painel.panel-open,
+#bot-painel.panel-open,
+#solucao-painel.panel-open{
+  display: block !important;
+  position: fixed !important;
+  top: 0 !important; left: 0 !important; right: 0 !important;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  z-index: var(--z-panel-open, 10030) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+/* admin usa layout flex (cabeçalho fixo + corpo rolável), então precisa
+   de display:flex em vez de block — mas as demais regras são as mesmas */
+#admin-painel.visible.panel-open{
+  display: flex !important;
+  position: fixed !important;
+  top: 0 !important; left: 0 !important; right: 0 !important;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  z-index: var(--z-panel-open, 10030) !important;
+  overflow-y: hidden !important;
+}
+
+@media (min-width: 641px){
+  /* no desktop, centraliza o painel aberto como uma "página" larga em
+     vez de ocupar a tela inteira de ponta a ponta */
+  #dado.panel-open,
+  #tabuleiro-painel.panel-open,
+  #voz-painel.panel-open,
+  #bot-painel.panel-open,
+  #admin-painel.visible.panel-open,
+  #solucao-painel.panel-open{
+    left: 50% !important; right: auto !important;
+    width: min(560px, calc(100% - 32px)) !important;
+    transform: translateX(-50%) !important;
+    top: 16px !important;
+    bottom: 80px !important;
+    border-radius: var(--radius-lg, 14px) !important;
+    border: 1px solid var(--floating-border, rgba(212,175,102,.45));
+  }
+}

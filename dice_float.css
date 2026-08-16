@@ -1,29 +1,18 @@
-/* ===== Dado flutuante (canto superior direito) + arrastavel =====
-   Adicione DEPOIS do dice.css:
-   <link rel="stylesheet" href="dice_float.css">
-   O elemento onde voce chama mountDice('#dado') deve receber id="dado". */
+/* ===== Aparência do painel do dado — Caso Arquivado =====
+   O posicionamento (onde/como o painel aparece na tela) agora é
+   controlado inteiramente por panel-nav.css. Este arquivo só define a
+   aparência visual de dentro do painel.
+   Uso: <link rel="stylesheet" href="dice_float.css"> (depois de dice.css) */
 
 #dado{
-  position: fixed;
-  top: 90px;                 /* abaixo do topo/menu */
-  right: 24px;
-  z-index: 9999;
-  width: 220px;
   padding: 0;
   box-sizing: border-box;
   text-align: center;
-  border: 1px solid rgba(212,175,102,.45);
-  border-radius: 14px;
-  background: rgba(20,16,12,.92);
-  box-shadow: 0 14px 34px rgba(0,0,0,.55);
-  backdrop-filter: blur(4px);
+  background: var(--floating-bg, rgba(20,16,12,.92));
+  color: var(--paper, #ece0c4);
   user-select: none;
-  touch-action: none;
-  overflow: hidden;
 }
-#dado.dragging{ box-shadow: 0 18px 44px rgba(0,0,0,.7); }
 
-/* o dado e o botao continuam clicaveis normalmente */
 #dado .dice-stage,
 #dado .dice-btn{ cursor: pointer; }
 
@@ -31,8 +20,3 @@
 #dado .dice-by{ font-size: 11px; opacity: .65; min-height: 14px; }
 #dado .dice-btn{ margin-top: 10px; width: 100%; }
 #dado .dice-sync{ display: inline-block; margin-top: 6px; font-size: 10px; opacity: .6; }
-
-/* nao bloqueia nada atras dele em telas pequenas */
-@media (max-width: 640px){
-  #dado{ width: 170px; top: 70px; right: 10px; transform: scale(.9); transform-origin: top right; }
-}

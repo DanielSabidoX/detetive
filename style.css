@@ -1,17 +1,5 @@
-:root{
-    --bg:#15120d;
-    --panel:#1f1a13;
-    --panel-2:#2a2318;
-    --paper:#ece0c4;
-    --paper-ink:#2b2013;
-    --gold:#b8863b;
-    --gold-bright:#d9a44f;
-    --red:#8a2a2a;
-    --red-bright:#b5433a;
-    --muted:#a89a7d;
-    --line:#3a3122;
-    --ok:#5f8a52;
-  }
+/* Variáveis de cor/espaçamento/z-index agora vivem em theme.css,
+   que precisa ser carregado antes deste arquivo. */
   *{box-sizing:border-box;}
   body{
     margin:0;
@@ -189,11 +177,12 @@
   .modal-overlay{
     position:fixed;inset:0;background:rgba(10,8,5,.75);
     display:flex;align-items:center;justify-content:center;
-    z-index:100;padding:16px;
+    z-index:var(--z-modal-overlay, 10040);padding:16px;
   }
   .modal{
     background:var(--panel);border:1px solid var(--gold);border-radius:6px;
     padding:22px;max-width:420px;width:100%;
+    position:relative;z-index:var(--z-modal, 10041);
   }
   .modal h3{color:var(--gold-bright);margin-bottom:14px;font-size:18px;}
   .modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}

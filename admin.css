@@ -4,19 +4,8 @@
    Uso: <link rel="stylesheet" href="admin.css"> */
 
 #admin-painel{
-  position: fixed;
-  bottom: 24px;
-  left: 24px;
-  z-index: 9996;
-  width: 320px;
-  max-width: calc(100vw - 20px);
-  max-height: calc(100vh - 48px);
   box-sizing: border-box;
-  border: 1px solid rgba(212,175,102,.45);
-  border-radius: 14px;
-  background: rgba(20,16,12,.94);
-  box-shadow: 0 14px 34px rgba(0,0,0,.55);
-  backdrop-filter: blur(4px);
+  background: var(--floating-bg, rgba(20,16,12,.94));
   user-select: none;
   font-family: 'Courier Prime', monospace;
   color: var(--paper, #ece0c4);
@@ -24,17 +13,13 @@
   flex-direction: column;
   overflow: hidden;
 }
-#admin-painel.visible{ display: flex; }
 
 #admin-painel .adm-handle{
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 14px;
-  cursor: grab;
   border-bottom: 1px solid rgba(212,175,102,.25);
   flex-shrink: 0;
-  touch-action: none; 
 }
-#admin-painel.dragging-panel .adm-handle{ cursor: grabbing; }
 #admin-painel .adm-handle h3{
   margin:0;font-family:'Oswald',sans-serif;font-size:14px;
   letter-spacing:.13em;text-transform:uppercase;color:var(--gold,#b8863b);
@@ -44,7 +29,7 @@
   font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
   padding:4px 10px;border-radius:3px;cursor:pointer;
 }
-#admin-painel .adm-toggle:hover{background:var(--gold,#b8863b);color:#1a1509;}
+#admin-painel .adm-toggle:hover{background:var(--gold,#b8863b);color:var(--ink-on-gold, #1a1509);}
 
 #admin-painel .adm-body{
   padding: 14px;
@@ -73,7 +58,7 @@
 
 #admin-painel .adm-badge{
   font-family:'Oswald',sans-serif;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;
-  color:#1a1509; background:var(--gold,#b8863b);
+  color:var(--ink-on-gold, #1a1509); background:var(--gold,#b8863b);
   padding:3px 8px;border-radius:3px;display:inline-block;margin-bottom:12px;
 }
 
@@ -104,7 +89,7 @@
   padding:9px 14px;border-radius:3px;cursor:pointer;
   transition:background .15s ease,transform .1s ease;
 }
-#admin-painel button.adm-btn:hover{background:var(--gold,#b8863b);color:#1a1509;}
+#admin-painel button.adm-btn:hover{background:var(--gold,#b8863b);color:var(--ink-on-gold, #1a1509);}
 #admin-painel button.adm-btn:active{transform:translateY(1px);}
 #admin-painel button.adm-btn[disabled]{opacity:.4;cursor:not-allowed;}
 #admin-painel button.adm-btn.danger{
@@ -130,8 +115,4 @@
 
 #admin-painel .adm-empty{
   font-size:12px;color:var(--muted,#a89a7d);font-style:italic;text-align:center;padding:6px 0;
-}
-
-@media (max-width: 640px){
-  #admin-painel{ width: 260px; bottom: 10px; left: 10px; }
 }

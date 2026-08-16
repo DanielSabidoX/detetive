@@ -17,8 +17,6 @@
 */
 (function(){
   var SESSION_KEY = 'casoArquivado_session_v1';
-  var PANEL_POS_KEY = 'casoArquivado_bot_pos_v1';
-  var PANEL_COLLAPSED_KEY = 'casoArquivado_bot_collapsed_v1';
 
   var MAX_PLAYERS = 6; // limitado pelo número de peões/suspeitos do jogo
 
@@ -198,7 +196,7 @@
   // ---- Groq (IA da sugestão) ----
   // Uso pessoal: chave direto no código, sem proxy. Gere a sua em
   // https://console.groq.com/keys
-  var GROQ_API_KEY = '';
+  var GROQ_API_KEY = 'COLOQUE_SUA_CHAVE_AQUI';
   var GROQ_MODEL = 'llama-3.3-70b-versatile';
   var GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -387,55 +385,10 @@
     var statusEl  = host.querySelector('.bot-status');
     var contentEl = host.querySelector('.bot-content');
 
-    try{
-      var savedPos = JSON.parse(localStorage.getItem(PANEL_POS_KEY));
-      if(savedPos && typeof savedPos.left === 'number'){
-        host.style.left = savedPos.left + 'px';
-        host.style.top  = savedPos.top + 'px';
-        host.style.right = 'auto';
-        host.style.bottom = 'auto';
-      }
-    }catch(e){}
-    try{
-      if(localStorage.getItem(PANEL_COLLAPSED_KEY) === '1') host.classList.add('collapsed');
-    }catch(e){}
-
+    // ---------- botão "_" fecha o painel e volta pra barra de abas ----------
     toggleBtn.addEventListener('click', function(){
-      host.classList.toggle('collapsed');
-      try{ localStorage.setItem(PANEL_COLLAPSED_KEY, host.classList.contains('collapsed') ? '1' : '0'); }catch(e){}
+      if(typeof window.closePanelNav === 'function') window.closePanelNav();
     });
-
-    (function panelDrag(){
-      var dragging=false, sx=0, sy=0, ox=0, oy=0;
-      handle.addEventListener('pointerdown', function(e){
-        if(e.target === toggleBtn) return;
-        var r = host.getBoundingClientRect();
-        host.style.left = r.left+'px'; host.style.top = r.top+'px';
-        host.style.right = 'auto'; host.style.bottom = 'auto';
-        dragging = true; sx=e.clientX; sy=e.clientY; ox=r.left; oy=r.top;
-        host.classList.add('dragging-panel');
-        handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
-      });
-      handle.addEventListener('pointermove', function(e){
-        if(!dragging) return;
-        var dx=e.clientX-sx, dy=e.clientY-sy;
-        var left = Math.min(Math.max(0, ox+dx), window.innerWidth-60);
-        var top  = Math.min(Math.max(0, oy+dy), window.innerHeight-40);
-        host.style.left = left+'px'; host.style.top = top+'px';
-      });
-      function stop(){
-        if(!dragging) return;
-        dragging=false;
-        host.classList.remove('dragging-panel');
-        try{
-          localStorage.setItem(PANEL_POS_KEY, JSON.stringify({
-            left: parseFloat(host.style.left)||0, top: parseFloat(host.style.top)||0
-          }));
-        }catch(e){}
-      }
-      handle.addEventListener('pointerup', stop);
-      handle.addEventListener('pointercancel', stop);
-    })();
 
     var roomCode = null;
     var room = null;
@@ -506,12 +459,21 @@
       });
     }
 
+    // sorteia um suspeito ainda não usado — mesma lógica do main.js, pra
+    // ficar consistente com o que os jogadores humanos recebem
+    function pickRandomSuspectForBot(existingPlayers){
+      var usados = (existingPlayers||[]).map(function(p){ return p.suspect; }).filter(Boolean);
+      var livres = BOT_SUSPEITOS.filter(function(s){ return usados.indexOf(s) < 0; });
+      var pool = livres.length ? livres : BOT_SUSPEITOS;
+      return pool[Math.floor(Math.random()*pool.length)];
+    }
+
     function addBot(){
       if(!roomCode || !room || room.phase!=='lobby') return;
       var used = (room.players||[]).map(function(p){ return p.name; });
       var pool = shuffle(BOT_NOMES).filter(function(n){ return used.indexOf(n+' (IA)') < 0; });
       var name = (pool[0] || ('Detetive '+Math.floor(Math.random()*90+10))) + ' (IA)';
-      var novoBot = { id: randId(), name: name, eliminated: false, isBot: true };
+      var novoBot = { id: randId(), name: name, eliminated: false, isBot: true, suspect: pickRandomSuspectForBot(room.players) };
 
       roomsCol().doc(roomCode).update({
         players: fv().arrayUnion(novoBot)
@@ -556,15 +518,17 @@
       });
     }
 
-    // qual peão (slug) do tabuleiro pertence a este jogador — segue a MESMA
-    // ordem posicional que o board.js usa (players[idx] <-> BOARD_SUSPECTS[idx])
+    // qual peão (slug) do tabuleiro pertence a este jogador — lê o suspeito
+    // GRAVADO nele (sorteado ao entrar), igual ao board.js já faz. Fallback
+    // por posição só existe pra compatibilidade com salas antigas.
     function boardSlugForBot(botId){
       var idx = -1;
       for(var i=0;i<(room.players||[]).length;i++){
         if(room.players[i].id===botId){ idx=i; break; }
       }
-      if(idx<0 || idx>=BOARD_SUSPECTS.length) return null;
-      return slugifyBoard(BOARD_SUSPECTS[idx]);
+      if(idx<0) return null;
+      var nome = room.players[idx].suspect || BOARD_SUSPECTS[idx % BOARD_SUSPECTS.length];
+      return slugifyBoard(nome);
     }
 
     function botRollDice(p, value){

@@ -6,6 +6,7 @@
 <title>DETETIVE — Jogo de Dedução Online</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css"> <!-- NOVO: precisa vir antes dos demais -->
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="dice.css">
 <link rel="stylesheet" href="dice_float.css">
@@ -14,6 +15,7 @@
 <link rel="stylesheet" href="admin.css">
 <link rel="stylesheet" href="voice.css">
 <link rel="stylesheet" href="bot.css"> <!-- NOVO -->
+<link rel="stylesheet" href="panel-nav.css"> <!-- ATUALIZADO: era mobile-nav.css, agora vale sempre -->
 <link rel="stylesheet" href="admin-launcher.css">
 </head>
 <body>
@@ -29,13 +31,14 @@
 <div id="admin-painel"></div>
 <div id="voz-painel"></div>
 <div id="bot-painel"></div> <!-- NOVO -->
+<div id="panel-tabbar"></div> <!-- ATUALIZADO: era mobile-tabbar -->
+
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="main.js"></script>
 <script src="dice.js"></script>
-<script src="dice_drag.js"></script>
 <script src="dice_sound.js"></script>
 <script src="board.js"></script>
 <script src="solucao.js"></script>
@@ -43,16 +46,17 @@
 <script src="suspense_music.js"></script>
 <script src="voice.js"></script>
 <script src="bot.js"></script> <!-- NOVO -->
+<script src="panel-nav.js"></script> <!-- ATUALIZADO: era mobile-nav.js, agora vale sempre -->
 <script>
   function safeMount(fn, sel){ try{ if(typeof window[fn]==='function') window[fn](sel); }catch(e){ console.warn(fn, e); } }
   safeMount('mountDice','#dado');
-  safeMount('makeDiceDraggable','#dado');
   safeMount('addDiceSound','#dado');
   safeMount('mountBoard','#tabuleiro-painel');
   safeMount('mountSolution','#solucao-painel');
   safeMount('mountAdmin','#admin-painel');
   safeMount('mountVoice','#voz-painel');
   safeMount('mountBot','#bot-painel'); // NOVO
+  safeMount('mountPanelNav','#panel-tabbar'); // ATUALIZADO: era mountMobileNav
 </script>
 
 <!-- 

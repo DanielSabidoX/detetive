@@ -11,8 +11,6 @@
 */
 (function(){
   var SESSION_KEY = 'casoArquivado_session_v1';
-  var PANEL_POS_KEY = 'casoArquivado_tabuleiro_pos_v1';
-  var PANEL_COLLAPSED_KEY = 'casoArquivado_tabuleiro_collapsed_v1';
 
   // ---- Layout da matriz (independente dos nomes reais — lido do room quando possível) ----
   var ROOM_GRID = [
@@ -411,54 +409,10 @@
     var boardWrap = host.querySelector('.tab-board-wrap');
     var legendEl  = host.querySelector('.tab-legend');
 
-    // ---------- posição/estado salvo do painel (só desta instância local) ----------
-    try{
-      var savedPos = JSON.parse(localStorage.getItem(PANEL_POS_KEY));
-      if(savedPos && typeof savedPos.left === 'number'){
-        host.style.left = savedPos.left + 'px';
-        host.style.top  = savedPos.top + 'px';
-      }
-    }catch(e){}
-    try{
-      if(localStorage.getItem(PANEL_COLLAPSED_KEY) === '1') host.classList.add('collapsed');
-    }catch(e){}
-
+    // ---------- botão "_" fecha o painel e volta pra barra de abas ----------
     toggleBtn.addEventListener('click', function(){
-      host.classList.toggle('collapsed');
-      try{ localStorage.setItem(PANEL_COLLAPSED_KEY, host.classList.contains('collapsed') ? '1' : '0'); }catch(e){}
+      if(typeof window.closePanelNav === 'function') window.closePanelNav();
     });
-
-    // ---------- arrastar o painel pela barra superior ----------
-    (function panelDrag(){
-      var dragging=false, sx=0, sy=0, ox=0, oy=0;
-      handle.addEventListener('pointerdown', function(e){
-        if(e.target === toggleBtn) return;
-        var r = host.getBoundingClientRect();
-        host.style.left = r.left+'px'; host.style.top = r.top+'px';
-        dragging = true; sx=e.clientX; sy=e.clientY; ox=r.left; oy=r.top;
-        host.classList.add('dragging-panel');
-        handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
-      });
-      handle.addEventListener('pointermove', function(e){
-        if(!dragging) return;
-        var dx=e.clientX-sx, dy=e.clientY-sy;
-        var left = Math.min(Math.max(0, ox+dx), window.innerWidth-60);
-        var top  = Math.min(Math.max(0, oy+dy), window.innerHeight-40);
-        host.style.left = left+'px'; host.style.top = top+'px';
-      });
-      function stop(){
-        if(!dragging) return;
-        dragging=false;
-        host.classList.remove('dragging-panel');
-        try{
-          localStorage.setItem(PANEL_POS_KEY, JSON.stringify({
-            left: parseFloat(host.style.left)||0, top: parseFloat(host.style.top)||0
-          }));
-        }catch(e){}
-      }
-      handle.addEventListener('pointerup', stop);
-      handle.addEventListener('pointercancel', stop);
-    })();
 
     // ---------- estado ----------
     var roomCode = null;
@@ -491,7 +445,10 @@
     }
     function slugForPlayerId(pid){
       for(var i=0;i<players.length;i++){
-        if(players[i].id===pid && i<SUSPECTS.length) return slugify(SUSPECTS[i]);
+        if(players[i].id===pid){
+          var nome = players[i].suspect || SUSPECTS[i % SUSPECTS.length]; // salas antigas sem o campo: cai no cálculo antigo
+          return slugify(nome);
+        }
       }
       return null;
     }
@@ -775,16 +732,22 @@
     function playerInitial(name){
       return (name||'?').trim().charAt(0).toUpperCase();
     }
-    // monta as 6 posições fixas (uma por suspeito), associando jogadores reais
-    // pela ordem em que entraram na sala. Sobrando suspeitos, ficam sem dono.
+    // monta as 6 posições fixas (uma por suspeito), associando o jogador
+    // que tem esse suspeito GRAVADO (sorteado ao entrar na sala) — não
+    // mais pela ordem de entrada, que é o que causava o descompasso entre
+    // o nome mostrado na lista de jogadores e o peão no tabuleiro.
     function buildPawnSlots(){
+      var donoPorSuspeito = {};
+      players.forEach(function(p, i){
+        var nome = p.suspect || SUSPECTS[i % SUSPECTS.length]; // salas antigas sem o campo
+        if(!donoPorSuspeito[nome]) donoPorSuspeito[nome] = p;
+      });
       return SUSPECTS.map(function(suspectName, idx){
-        var owner = players[idx] || null;
         return {
           suspectName: suspectName,
           slug: slugify(suspectName),
           color: suspectColor(idx),
-          owner: owner
+          owner: donoPorSuspeito[suspectName] || null
         };
       });
     }

@@ -1,0 +1,57 @@
+/* ===== theme.css — Design tokens compartilhados — Caso Arquivado =====
+   Fonte única de cores, espaçamento, raio de borda e camadas (z-index)
+   usada por style.css e por todos os painéis independentes (dice.css,
+   dice_float.css, board.css, solucao.css, voice.css, admin.css, bot.css).
+
+   Precisa ser carregado ANTES de qualquer outro CSS do jogo, no <head>:
+   <link rel="stylesheet" href="theme.css">
+   <link rel="stylesheet" href="style.css">
+   ... (demais CSS dos painéis) ...
+*/
+
+:root{
+  /* ---- paleta ---- */
+  --bg:#15120d;
+  --panel:#1f1a13;
+  --panel-2:#2a2318;
+  --paper:#ece0c4;
+  --paper-ink:#2b2013;
+  --gold:#b8863b;
+  --gold-bright:#d9a44f;
+  --red:#8a2a2a;
+  --red-bright:#b5433a;
+  --muted:#a89a7d;
+  --line:#3a3122;
+  --ok:#5f8a52;
+
+  /* cor de texto usada em cima de fundos dourados (hover de botões/toggles) —
+     já era usada em todos os painéis, só que hardcoded e repetida */
+  --ink-on-gold: #1a1509;
+
+  /* ---- aparência padrão dos painéis flutuantes (dado, tabuleiro,
+     solução, voz, admin, bots) — todos usam o mesmo fundo/borda/sombra ---- */
+  --floating-bg: rgba(20,16,12,.94);
+  --floating-border: rgba(212,175,102,.45);
+  --floating-shadow: 0 14px 34px rgba(0,0,0,.55);
+
+  /* ---- espaçamento ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  /* ---- raio de borda ---- */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 14px;
+
+  /* ---- camadas (z-index) ----
+     Só existe UM painel aberto por vez agora (sistema de abas), então
+     não precisamos mais de uma faixa por painel — só uma camada pro
+     painel aberto, uma pra barra de abas, e uma (mais alta) pros modais. */
+  --z-tabbar: 10035;
+  --z-panel-open: 10030;
+  --z-modal-overlay: 10040;
+  --z-modal:         10041;
+}

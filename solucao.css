@@ -3,18 +3,8 @@
    Uso: <link rel="stylesheet" href="solucao.css"> */
 
 #solucao-painel{
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 9997;
-  width: 340px;
-  max-width: calc(100vw - 20px);
   box-sizing: border-box;
-  border: 1px solid rgba(212,175,102,.45);
-  border-radius: 14px;
-  background: rgba(20,16,12,.94);
-  box-shadow: 0 14px 34px rgba(0,0,0,.55);
-  backdrop-filter: blur(4px);
+  background: var(--floating-bg, rgba(20,16,12,.94));
   user-select: none;
   font-family: 'Courier Prime', monospace;
   color: var(--paper, #ece0c4);
@@ -23,11 +13,8 @@
 #solucao-painel .sol-handle{
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 14px;
-  cursor: grab;
   border-bottom: 1px solid rgba(212,175,102,.25);
-  touch-action: none;
 }
-#solucao-painel.dragging-panel .sol-handle{ cursor: grabbing; }
 #solucao-painel .sol-handle h3{
   margin:0;font-family:'Oswald',sans-serif;font-size:14px;
   letter-spacing:.15em;text-transform:uppercase;color:var(--gold,#b8863b);
@@ -37,10 +24,9 @@
   font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
   padding:4px 10px;border-radius:3px;cursor:pointer;
 }
-#solucao-painel .sol-toggle:hover{background:var(--gold,#b8863b);color:#1a1509;}
+#solucao-painel .sol-toggle:hover{background:var(--gold,#b8863b);color:var(--ink-on-gold, #1a1509);}
 
 #solucao-painel .sol-body{ padding: 16px; }
-#solucao-painel.collapsed .sol-body{ display:none; }
 
 #solucao-painel .sol-status{
   font-size: 10px;letter-spacing:.15em;text-transform:uppercase;
@@ -149,6 +135,5 @@
 }
 
 @media (max-width: 640px){
-  #solucao-painel{ width: 280px; bottom: 10px; right: 10px; }
   .sol-card{ width: 74px; height: 108px; }
 }
