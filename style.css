@@ -102,6 +102,15 @@
   button.link{border:none;color:var(--gold);text-decoration:underline;padding:4px 0;background:none;}
   button.link:hover{background:none;color:var(--gold-bright);}
 
+  @keyframes pulse-action-glow{
+    0%,100%{ box-shadow:0 0 0 0 rgba(217,164,79,.55); }
+    50%{ box-shadow:0 0 0 8px rgba(217,164,79,0); }
+  }
+  button.pulse-action{
+    animation: pulse-action-glow 1.5s ease-in-out infinite;
+    border-color: var(--gold-bright);
+  }
+
   .error{color:var(--red-bright);font-size:13px;margin-top:8px;}
   .hint{color:var(--muted);font-size:12px;margin-top:6px;}
 

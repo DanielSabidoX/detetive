@@ -1,39 +1,12 @@
-/* ===== Dado Virtual — tema Caso Arquivado ===== */
-.dice-box{
-  background:var(--panel,#1f1a13);
-  border:1px solid var(--line,#3a3122);
-  border-radius:4px;
-  padding:0;
-  margin-bottom:18px;
-  position:relative;
-  text-align:center;
-}
-.dice-box::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-  background:linear-gradient(90deg,transparent,var(--gold,#b8863b),transparent);
-  opacity:.5;
-}
+/* ===== Dado Virtual — tema Caso Arquivado =====
+   Cabeçalho/corpo/status compartilhados vêm de panels.css. Aqui fica só
+   a parte própria do dado: o cubo 3D, a animação de rolagem, o botão e
+   os indicadores de sincronização — que tem detalhe demais pra valer a
+   pena espalhar em outro arquivo.
+   Uso: <link rel="stylesheet" href="dice.css"> (depois de panels.css) */
 
-.dice-handle{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 14px;
-  border-bottom: 1px solid rgba(212,175,102,.25);
-}
-.dice-handle h3{
-  margin:0;font-family:'Oswald',sans-serif;font-size:14px;color:var(--gold,#b8863b);
-  letter-spacing:.15em;text-transform:uppercase;
-}
-.dice-toggle{
-  background:none;border:1px solid var(--gold,#b8863b);color:var(--gold-bright,#d9a44f);
-  font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-  padding:4px 10px;border-radius:3px;cursor:pointer;
-}
-.dice-toggle:hover{background:var(--gold,#b8863b);color:var(--ink-on-gold, #1a1509);}
-
-.dice-body{ padding: 22px; }
-
-.dice-box .dice-hint{
-  font-family:'Courier Prime',monospace;font-size:12px;color:var(--muted,#a89a7d);
+#dado .dice-hint{
+  font-size:12px;color:var(--muted,#a89a7d);
   margin:0 0 18px;letter-spacing:.05em;
 }
 
@@ -52,7 +25,6 @@
 .dice{
   position:relative;width:100px;height:100px;margin:10px;
   transform-style:preserve-3d;
-  transition:transform 1.6s cubic-bezier(.２,.9,.25,1);
   transition:transform 1.6s cubic-bezier(0.2,0.9,0.25,1);
   transform:rotateX(-20deg) rotateY(-20deg);
 }
@@ -96,11 +68,14 @@
   font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:.2em;
   text-transform:uppercase;font-size:13px;color:var(--muted,#a89a7d);
   min-height:22px;
+  text-align:center;
 }
 .dice-result b{
   color:var(--gold-bright,#d9a44f);font-size:22px;vertical-align:-2px;margin-left:6px;
 }
 .dice-btn{
+  display:block;
+  width:100%;
   font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;font-size:13px;
   background:var(--red,#8a2a2a);color:var(--paper,#ece0c4);
@@ -112,13 +87,13 @@
 .dice-btn:active{transform:translateY(1px);}
 .dice-btn[disabled]{opacity:.5;cursor:not-allowed;}
 
-/* ===== v2: sincronização entre jogadores ===== */
 .dice-by{
-  font-family:'Courier Prime',monospace;font-size:12px;
-  color:var(--muted,#a89a7d);letter-spacing:.05em;min-height:18px;margin-top:4px;
+  font-size:11px;
+  color:var(--muted,#a89a7d);letter-spacing:.05em;min-height:14px;margin-top:4px;
+  text-align:center;
 }
 .dice-sync{
-  display:inline-block;margin-top:10px;font-family:'Oswald',sans-serif;
+  display:inline-block;margin-top:6px;font-family:'Oswald',sans-serif;
   font-size:10px;letter-spacing:.2em;text-transform:uppercase;
   color:var(--muted,#a89a7d);opacity:.8;
 }

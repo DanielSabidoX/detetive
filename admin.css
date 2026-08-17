@@ -1,60 +1,42 @@
 /* ===== Painel do Anfitrião — Caso Arquivado =====
    Arquivo isolado, independente do main.js.
    Visível apenas para quem é o anfitrião (hostId) da sala atual.
-   Uso: <link rel="stylesheet" href="admin.css"> */
+   Cabeçalho/botão de fechar/status/vazio compartilhados vêm de
+   panels.css — aqui só fica o que é específico deste painel: o corpo
+   com rolagem própria (o admin usa layout em coluna, diferente dos
+   outros painéis), seções, botões e select.
+   Uso: <link rel="stylesheet" href="admin.css"> (depois de panels.css) */
 
 #admin-painel{
-  box-sizing: border-box;
-  background: var(--floating-bg, rgba(20,16,12,.94));
-  user-select: none;
-  font-family: 'Courier Prime', monospace;
-  color: var(--paper, #ece0c4);
   display: none; /* só aparece quando o script confirmar que você é o anfitrião */
   flex-direction: column;
   overflow: hidden;
 }
 
-#admin-painel .adm-handle{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 14px;
-  border-bottom: 1px solid rgba(212,175,102,.25);
-  flex-shrink: 0;
-}
-#admin-painel .adm-handle h3{
-  margin:0;font-family:'Oswald',sans-serif;font-size:14px;
-  letter-spacing:.13em;text-transform:uppercase;color:var(--gold,#b8863b);
-}
-#admin-painel .adm-toggle{
-  background:none;border:1px solid var(--gold,#b8863b);color:var(--gold-bright,#d9a44f);
-  font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-  padding:4px 10px;border-radius:3px;cursor:pointer;
-}
-#admin-painel .adm-toggle:hover{background:var(--gold,#b8863b);color:var(--ink-on-gold, #1a1509);}
-
-#admin-painel .adm-body{
-  padding: 14px;
+/* corpo com rolagem própria (o cabeçalho fica fixo) — diferente dos
+   outros painéis, que deixam o painel inteiro rolar */
+#admin-painel .panel-body{
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--gold,#b8863b) rgba(0,0,0,.35);
 }
-#admin-painel .adm-body::-webkit-scrollbar{
+#admin-painel .panel-body::-webkit-scrollbar{
   width: 10px;
 }
-#admin-painel .adm-body::-webkit-scrollbar-track{
+#admin-painel .panel-body::-webkit-scrollbar-track{
   background: rgba(0,0,0,.35);
   border-radius: 6px;
 }
-#admin-painel .adm-body::-webkit-scrollbar-thumb{
+#admin-painel .panel-body::-webkit-scrollbar-thumb{
   background-color: var(--gold,#b8863b);
   border-radius: 6px;
   border: 2px solid rgba(20,16,12,.94);
 }
-#admin-painel .adm-body::-webkit-scrollbar-thumb:hover{
+#admin-painel .panel-body::-webkit-scrollbar-thumb:hover{
   background-color: var(--gold-bright,#d9a44f);
 }
-#admin-painel.collapsed .adm-body{ display:none; }
 
 #admin-painel .adm-badge{
   font-family:'Oswald',sans-serif;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;
@@ -112,7 +94,3 @@
   outline:none;
 }
 #admin-painel select:focus{ border-color: var(--gold,#b8863b); }
-
-#admin-painel .adm-empty{
-  font-size:12px;color:var(--muted,#a89a7d);font-style:italic;text-align:center;padding:6px 0;
-}

@@ -49,17 +49,17 @@
     if(!host) return;
 
     host.innerHTML =
-      '<div class="adm-handle">'+
+      '<div class="panel-handle">'+
         '<h3>Painel do Anfitrião</h3>'+
-        '<button type="button" class="adm-toggle">_</button>'+
+        '<button type="button" class="panel-toggle">_</button>'+
       '</div>'+
-      '<div class="adm-body">'+
+      '<div class="panel-body">'+
         '<span class="adm-badge">Somente Você Vê Isto</span>'+
         '<div class="adm-content"></div>'+
       '</div>';
 
-    var handle    = host.querySelector('.adm-handle');
-    var toggleBtn = host.querySelector('.adm-toggle');
+    var handle    = host.querySelector('.panel-handle');
+    var toggleBtn = host.querySelector('.panel-toggle');
     var contentEl = host.querySelector('.adm-content');
 
     // ---------- botão "_" fecha o painel e volta pra barra de abas ----------
@@ -104,7 +104,7 @@
 
 
       if(!room){
-        contentEl.innerHTML = '<div class="adm-empty">Entre em uma sala para ver este painel.</div>';
+        contentEl.innerHTML = '<div class="panel-empty">Entre em uma sala para ver este painel.</div>';
         return;
       }
 
@@ -133,7 +133,7 @@
         if(ended){
           html += '<div class="adm-desc">A partida já terminou.</div>';
         } else if(!turnPlayer){
-          html += '<div class="adm-empty">Nenhum jogador ativo no momento.</div>';
+          html += '<div class="panel-empty">Nenhum jogador ativo no momento.</div>';
         } else {
           html += '<div class="adm-current-turn">Vez atual: <b>'+escHtml(turnPlayer.name)+'</b></div>'+
             '<button type="button" class="adm-btn" id="adm-pass-btn">Pular Vez de '+escHtml(turnPlayer.name)+'</button>';
@@ -158,7 +158,7 @@
       html += '<div class="adm-section">'+
         '<div class="adm-section-title">Zoom do Mapa</div>';
       if(!hasBoard){
-        html += '<div class="adm-empty">Abra o tabuleiro para controlar o zoom.</div>';
+        html += '<div class="panel-empty">Abra o tabuleiro para controlar o zoom.</div>';
       } else {
         html += '<div class="adm-desc">'+(zoomSynced
           ? 'O zoom está sincronizado: quando qualquer jogador dá zoom ou arrasta o mapa, todos veem igual.'
@@ -173,7 +173,7 @@
       html += '<div class="adm-section">'+
         '<div class="adm-section-title">Transferir Anfitrião</div>';
       if(!others.length){
-        html += '<div class="adm-empty">Não há outros jogadores na sala.</div>';
+        html += '<div class="panel-empty">Não há outros jogadores na sala.</div>';
       } else {
         html += '<div class="adm-desc">Escolha quem vira o novo anfitrião da sala.</div>'+
           '<select id="adm-host-select">'+

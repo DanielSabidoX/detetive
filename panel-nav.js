@@ -17,6 +17,7 @@
   var SESSION_KEY = 'casoArquivado_session_v1';
 
   var TABS = [
+    { id:'acoes',     label:'Ações',      icon:'🎯', sel:'#acoes-painel' },
     { id:'dado',      label:'Dado',       icon:'🎲', sel:'#dado' },
     { id:'tabuleiro', label:'Tabuleiro',  icon:'🗺️', sel:'#tabuleiro-painel' },
     { id:'solucao',   label:'Solução',    icon:'🔍', sel:'#solucao-painel' },
@@ -68,7 +69,10 @@
       }
       closeAll();
       el.classList.add('panel-open');
-      if(buttons[id]) buttons[id].classList.add('active');
+      if(buttons[id]){
+        buttons[id].classList.add('active');
+        buttons[id].classList.remove('needs-action');
+      }
       openId = id;
     }
 
@@ -82,8 +86,39 @@
     // e voltar pra barra de abas em vez de só esconder o conteúdo
     window.closePanelNav = closeAll;
 
-    // ---------- mostra/esconde a aba "Anfitrião" conforme a sessão ----------
+    // ---------- mostra/esconde a aba "Anfitrião" + pulsa a aba certa ----------
     var roomCode = null, unsubRoom = null;
+
+    function activePlayerId(room){
+      var order = (room.turnOrder||[]).filter(function(id){
+        var p = (room.players||[]).filter(function(pp){ return pp.id===id; })[0];
+        return p && !p.eliminated;
+      });
+      if(!order.length) return null;
+      return order[room.turnIndex % order.length];
+    }
+
+    function atualizarPulso(d, s){
+      if(buttons.dado) buttons.dado.classList.remove('needs-action');
+      if(buttons.tabuleiro) buttons.tabuleiro.classList.remove('needs-action');
+      if(buttons.acoes) buttons.acoes.classList.remove('needs-action');
+      if(!d || d.phase!=='playing' || !s || !s.pid) return;
+      if(activePlayerId(d) !== s.pid) return; // não é a minha vez, nada pulsa
+
+      var jaRolou = d.lastRollTurnIndex === d.turnIndex;
+      if(!jaRolou){
+        if(buttons.dado) buttons.dado.classList.add('needs-action');
+        return;
+      }
+      var mb = d.moveBudget;
+      var meusPassos = (mb && mb.turnIndex===d.turnIndex && mb.playerId===s.pid) ? mb.stepsLeft : 0;
+      if(meusPassos > 0 && buttons.tabuleiro){
+        buttons.tabuleiro.classList.add('needs-action');
+        return;
+      }
+      // já rolou e já terminou de andar: hora de sugerir, acusar ou passar a vez
+      if(buttons.acoes) buttons.acoes.classList.add('needs-action');
+    }
 
     function listenRoom(code){
       if(unsubRoom){ unsubRoom(); unsubRoom=null; }
@@ -97,6 +132,7 @@
         var s = getSession();
         var souHost = !!(d && s && s.pid && d.hostId===s.pid);
         if(buttons.admin) buttons.admin.hidden = !souHost;
+        atualizarPulso(d, s);
       }, function(err){
         console.warn('[abas] falha ao ler a sala:', err && err.code, err && err.message);
       });

@@ -32,26 +32,26 @@
     if(!host) return;
 
     host.innerHTML =
-      '<div class="voz-handle">'+
-        '<div class="voz-title">Voz da mesa</div>'+
-        '<button type="button" class="voz-toggle">–</button>'+
+      '<div class="panel-handle">'+
+        '<div class="panel-title">Voz da mesa</div>'+
+        '<button type="button" class="panel-toggle">–</button>'+
       '</div>'+
-      '<div class="voz-body">'+
+      '<div class="panel-body">'+
         '<div class="voz-actions">'+
           '<button type="button" class="voz-btn voz-join">Entrar na voz</button>'+
           '<button type="button" class="voz-btn voz-mute" hidden>Mutar</button>'+
         '</div>'+
-        '<div class="voz-status">Sem sala ativa</div>'+
+        '<div class="panel-status">Sem sala ativa</div>'+
         '<div class="voz-peers"></div>'+
       '</div>';
 
     var joinBtn = host.querySelector('.voz-join');
     var muteBtn = host.querySelector('.voz-mute');
-    var statusEl= host.querySelector('.voz-status');
+    var statusEl= host.querySelector('.panel-status');
     var peersEl = host.querySelector('.voz-peers');
 
-    var handle  = host.querySelector('.voz-handle');
-    var toggleBtn = host.querySelector('.voz-toggle');
+    var handle  = host.querySelector('.panel-handle');
+    var toggleBtn = host.querySelector('.panel-toggle');
 
     // ---------- botão "–" fecha o painel e volta pra barra de abas ----------
     toggleBtn.addEventListener('click', function(){

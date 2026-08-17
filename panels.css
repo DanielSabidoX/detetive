@@ -1,0 +1,85 @@
+/* ===== Estrutura comum dos painéis — Caso Arquivado =====
+   Todo painel (dado, tabuleiro, solução, voz, bots, admin) segue o mesmo
+   esqueleto: cabeçalho com título + botão de fechar, corpo com o
+   conteúdo, uma linha de status opcional. Antes cada painel repetia esse
+   CSS com um prefixo de classe próprio (.adm-, .tab-, .sol-, .bot-,
+   .voz-); agora usam as MESMAS classes (.panel-handle, .panel-toggle,
+   .panel-body, .panel-status, .panel-empty, .panel-hint), definidas uma
+   única vez aqui.
+
+   Cada arquivo de painel (admin.css, board.css, bot.css, dice.css,
+   solucao.css, voice.css) só guarda o que é realmente específico dele
+   (cores de sala, cartas 3D, lista de bots, etc.).
+
+   Uso: <link rel="stylesheet" href="panels.css"> (depois de theme.css,
+   antes dos CSS de cada painel individual) */
+
+#acoes-painel, #dado, #tabuleiro-painel, #solucao-painel, #voz-painel, #bot-painel, #admin-painel{
+  box-sizing: border-box;
+  background: var(--floating-bg, rgba(20,16,12,.94));
+  user-select: none;
+  font-family: 'Courier Prime', monospace;
+  color: var(--paper, #ece0c4);
+}
+
+.panel-handle{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(212,175,102,.25);
+  flex-shrink: 0;
+}
+.panel-handle h3,
+.panel-handle .panel-title{
+  margin: 0;
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--gold, #b8863b);
+}
+.panel-toggle{
+  background: none;
+  border: 1px solid var(--gold, #b8863b);
+  color: var(--gold-bright, #d9a44f);
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm, 3px);
+  cursor: pointer;
+}
+.panel-toggle:hover{
+  background: var(--gold, #b8863b);
+  color: var(--ink-on-gold, #1a1509);
+}
+
+.panel-body{ padding: 14px; }
+
+.panel-status{
+  font-size: 10px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--muted, #a89a7d);
+  margin-bottom: 10px;
+  text-align: center;
+}
+.panel-status.on{ color: var(--ok, #5f8a52); }
+.panel-status.revealed{ color: var(--red-bright, #b5433a); }
+
+.panel-empty{
+  font-size: 12px;
+  color: var(--muted, #a89a7d);
+  font-style: italic;
+  text-align: center;
+  padding: 16px 6px;
+}
+
+.panel-hint{
+  font-size: 10.5px;
+  color: var(--muted, #a89a7d);
+  text-align: center;
+  margin-top: 10px;
+}

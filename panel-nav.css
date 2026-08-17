@@ -5,10 +5,11 @@
 
    Uso: <link rel="stylesheet" href="panel-nav.css"> (depois de theme.css) */
 
-/* dá espaço no fim da página pra barra de abas não tampar o conteúdo */
+/* dá espaço no fim da página pra barra de abas não tampar o conteúdo
+   (no PC isso muda pra espaço à esquerda — ver media query mais abaixo) */
 body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 
-/* ---- barra de abas fixa no rodapé ---- */
+/* ---- barra de abas fixa no rodapé (padrão: celular) ---- */
 .panel-tabbar{
   display: flex;
   position: fixed;
@@ -48,15 +49,44 @@ body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 }
 .panel-tab[hidden]{ display: none; }
 
+@keyframes tab-pulse-glow{
+  0%,100%{ box-shadow: inset 0 0 0 0 rgba(217,164,79,.6); }
+  50%{ box-shadow: inset 0 0 0 3px rgba(217,164,79,.6); }
+}
+.panel-tab.needs-action{
+  color: var(--gold-bright, #d9a44f);
+  animation: tab-pulse-glow 1.5s ease-in-out infinite;
+}
+
 @media (min-width: 641px){
-  /* no desktop a barra fica centralizada, não precisa ocupar a tela toda */
-  .panel-tabbar{ border-radius: var(--radius-lg, 14px) var(--radius-lg, 14px) 0 0; bottom: 0; }
+  /* no PC a barra vira uma coluna fixa na lateral esquerda, não uma
+     faixa no rodapé */
+  body{ padding-bottom: 0; padding-left: 88px; }
+
+  .panel-tabbar{
+    left: 0; right: auto; top: 0; bottom: 0;
+    width: 80px; max-width: 80px;
+    height: 100%;
+    margin: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    border-top: none;
+    border-right: 1px solid var(--floating-border, rgba(212,175,102,.45));
+    border-radius: 0;
+    padding: 12px 6px;
+  }
+  .panel-tab{
+    flex: 0 0 auto;
+    padding: 10px 4px;
+  }
 }
 
 /* ---- painéis: escondidos por padrão, tela cheia quando abertos ---- */
-#dado, #tabuleiro-painel, #solucao-painel, #voz-painel, #bot-painel, #admin-painel{
+#acoes-painel, #dado, #tabuleiro-painel, #solucao-painel, #voz-painel, #bot-painel, #admin-painel{
   display: none !important;
 }
+#acoes-painel.panel-open,
 #dado.panel-open,
 #tabuleiro-painel.panel-open,
 #voz-painel.panel-open,
@@ -94,19 +124,21 @@ body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 }
 
 @media (min-width: 641px){
-  /* no desktop, centraliza o painel aberto como uma "página" larga em
-     vez de ocupar a tela inteira de ponta a ponta */
+  /* no desktop, o painel aberto vira uma "página" larga à direita da
+     barra lateral, em vez de ocupar a tela inteira de ponta a ponta */
+  #acoes-painel.panel-open,
   #dado.panel-open,
   #tabuleiro-painel.panel-open,
   #voz-painel.panel-open,
   #bot-painel.panel-open,
   #admin-painel.visible.panel-open,
   #solucao-painel.panel-open{
-    left: 50% !important; right: auto !important;
-    width: min(560px, calc(100% - 32px)) !important;
-    transform: translateX(-50%) !important;
+    left: 104px !important; right: 16px !important;
+    width: auto !important;
+    max-width: 560px !important;
+    transform: none !important;
     top: 16px !important;
-    bottom: 80px !important;
+    bottom: 16px !important;
     border-radius: var(--radius-lg, 14px) !important;
     border: 1px solid var(--floating-border, rgba(212,175,102,.45));
   }

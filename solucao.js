@@ -35,18 +35,18 @@
     if(!host) return;
 
     host.innerHTML =
-      '<div class="sol-handle">'+
+      '<div class="panel-handle">'+
         '<h3>Solução do Caso</h3>'+
-        '<button type="button" class="sol-toggle">_</button>'+
+        '<button type="button" class="panel-toggle">_</button>'+
       '</div>'+
-      '<div class="sol-body">'+
-        '<div class="sol-status">Sem sala ativa</div>'+
+      '<div class="panel-body">'+
+        '<div class="panel-status">Sem sala ativa</div>'+
         '<div class="sol-content"></div>'+
       '</div>';
 
-    var handle    = host.querySelector('.sol-handle');
-    var toggleBtn = host.querySelector('.sol-toggle');
-    var statusEl  = host.querySelector('.sol-status');
+    var handle    = host.querySelector('.panel-handle');
+    var toggleBtn = host.querySelector('.panel-toggle');
+    var statusEl  = host.querySelector('.panel-status');
     var contentEl = host.querySelector('.sol-content');
 
     // ---------- botão "_" fecha o painel e volta pra barra de abas ----------
@@ -82,15 +82,15 @@
         }
       }
       if(!room){
-        contentEl.innerHTML = '<div class="sol-empty">Entre em uma sala para ver este painel.</div>';
+        contentEl.innerHTML = '<div class="panel-empty">Entre em uma sala para ver este painel.</div>';
         return;
       }
       if(room.phase !== 'playing' && room.phase !== 'ended'){
-        contentEl.innerHTML = '<div class="sol-empty">Disponível assim que a investigação começar.</div>';
+        contentEl.innerHTML = '<div class="panel-empty">Disponível assim que a investigação começar.</div>';
         return;
       }
       if(!room.secret){
-        contentEl.innerHTML = '<div class="sol-empty">Aguardando o início da partida...</div>';
+        contentEl.innerHTML = '<div class="panel-empty">Aguardando o início da partida...</div>';
         return;
       }
 
@@ -122,9 +122,9 @@
         html += '<div class="sol-revealed-by">Revelado por '+escHtml(revealState.revealedBy||'?')+'</div>';
       } else if(isHost()){
         html += '<button type="button" class="sol-reveal-btn">Revelar Solução</button>'+
-                '<div class="sol-hint">Só você (anfitrião) vê este botão. Use se ninguém acertar o caso.</div>';
+                '<div class="panel-hint">Só você (anfitrião) vê este botão. Use se ninguém acertar o caso.</div>';
       } else {
-        html += '<div class="sol-hint">Só o anfitrião pode revelar a solução.</div>';
+        html += '<div class="panel-hint">Só o anfitrião pode revelar a solução.</div>';
       }
 
       contentEl.innerHTML = html;
@@ -198,7 +198,7 @@
       if(unsubReveal){ unsubReveal(); unsubReveal=null; }
       statusEl.textContent = 'Sem sala ativa';
       statusEl.classList.remove('on','revealed');
-      contentEl.innerHTML = '<div class="sol-empty">Entre em uma sala para ver este painel.</div>';
+      contentEl.innerHTML = '<div class="panel-empty">Entre em uma sala para ver este painel.</div>';
     }
 
     function checkSession(){

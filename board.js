@@ -177,6 +177,8 @@
     st.textContent =
       '.tab-cell.reachable{cursor:pointer;box-shadow:inset 0 0 0 2px #5fbf5f;background:rgba(95,191,95,.25)}'+
       '.tab-cell.reachable:hover{background:rgba(95,191,95,.45)}'+
+      '.tab-cell.corridor.door.reachable{background:rgba(95,191,95,.45);box-shadow:inset 0 0 0 2px #5fbf5f}'+
+      '.tab-cell.corridor.door.reachable:hover{background:rgba(95,191,95,.65)}'+
       '.tab-move-controls{margin:8px 0;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.06);font-size:12px}'+
       '.tab-move-hint{opacity:.85;margin-bottom:6px}'+
       '.tab-move-btn{display:block;width:100%;margin-top:4px;padding:6px 10px;border-radius:6px;'+
@@ -379,12 +381,12 @@
     if(!host) return;
 
     host.innerHTML =
-      '<div class="tab-handle">'+
+      '<div class="panel-handle">'+
         '<h3>Tabuleiro</h3>'+
-        '<button type="button" class="tab-toggle">_</button>'+
+        '<button type="button" class="panel-toggle">_</button>'+
       '</div>'+
-      '<div class="tab-body">'+
-        '<div class="tab-status">Sem sala ativa</div>'+
+      '<div class="panel-body">'+
+        '<div class="panel-status">Sem sala ativa</div>'+
         '<div class="tab-admin" hidden>'+
           '<label class="tab-sync-toggle">'+
             '<input type="checkbox" class="tab-sync-check">'+
@@ -398,10 +400,10 @@
       
       '</div>';
 
-    var handle    = host.querySelector('.tab-handle');
-    var toggleBtn = host.querySelector('.tab-toggle');
-    var body      = host.querySelector('.tab-body');
-    var statusEl  = host.querySelector('.tab-status');
+    var handle    = host.querySelector('.panel-handle');
+    var toggleBtn = host.querySelector('.panel-toggle');
+    var body      = host.querySelector('.panel-body');
+    var statusEl  = host.querySelector('.panel-status');
     var adminEl   = host.querySelector('.tab-admin');
     var syncCheck = host.querySelector('.tab-sync-check');
     var syncNote  = host.querySelector('.tab-sync-note');
@@ -1501,7 +1503,7 @@
       if(unsubBoard){ unsubBoard(); unsubBoard=null; }
       statusEl.textContent = 'Sem sala ativa';
       statusEl.classList.remove('on');
-      boardWrap.innerHTML = '<div class="tab-empty">Entre em uma sala para ver o tabuleiro.</div>';
+      boardWrap.innerHTML = '<div class="panel-empty">Entre em uma sala para ver o tabuleiro.</div>';
       boardEl = null; viewportEl = null;
       legendEl.innerHTML = '';
       moveControlsEl.hidden = true;

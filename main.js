@@ -892,21 +892,36 @@ function renderGame(){
     }
     var jaSugeriuNestaVisita = myRoom && state.suggestedRoomVisit === myRoom;
 
-    html += '<div class="panel">'+
-      '<div class="section-title"><h2>Ações</h2></div>'+
-      (myTurn && !myRoom ? '<div class="sub" style="margin-bottom:8px;">Você precisa estar dentro de uma sala para fazer um palpite ou acusação. Role o dado e mova seu peão até uma porta.</div>' : '')+
-      '<div class="row">'+
-        (myTurn && myRoom && !jaSugeriuNestaVisita ?
-          '<button onclick="__actions.openSuggest()">Fazer Palpite</button>' :
-          '<button disabled title="'+(!myTurn ? 'Aguarde a sua vez.' : !myRoom ? 'Você precisa estar dentro de uma sala.' : 'Você já fez um palpite nesta sala. Saia e entre novamente para poder sugerir de novo.')+'">Fazer Palpite</button>'
-        )+
-        (myTurn ? '<button onclick="__actions.passTurn()">Passar a Vez</button>' : '')+
-        (!me.eliminated && myTurn && myRoom ?
-          '<button class="danger" onclick="__actions.openAccuse()">Acusação Final</button>' :
-          (!me.eliminated ? '<button class="danger" disabled title="'+(!myTurn ? 'Aguarde a sua vez.' : 'Você precisa estar dentro de uma sala.')+'">Acusação Final</button>' : '')
-        )+
-      '</div>'+
-    '</div>';
+    // quantos passos do dado ainda restam pra mim neste turno (null = ainda
+    // nem rolei o dado) — usado só pra decidir qual botão pulsar
+    var mb = room.moveBudget;
+    var meusPassos = (mb && mb.turnIndex===room.turnIndex && mb.playerId===state.playerId) ? mb.stepsLeft : null;
+
+    var podeSugerirAgora = myTurn && myRoom && !jaSugeriuNestaVisita;
+    // "acabou de mover" (sem passos e sem palpite pendente) = hora de passar a vez
+    var deveriaPassarAgora = myTurn && meusPassos===0 && !podeSugerirAgora;
+
+    var acoesEl = document.getElementById('acoes-painel');
+    if(acoesEl){
+      acoesEl.innerHTML =
+        '<div class="panel-handle"><h3>Ações</h3>'+
+          '<button type="button" class="panel-toggle" onclick="if(window.closePanelNav) window.closePanelNav();">_</button>'+
+        '</div>'+
+        '<div class="panel-body">'+
+          (myTurn && !myRoom ? '<div class="sub" style="margin-bottom:8px;">Você precisa estar dentro de uma sala para fazer um palpite ou acusação. Role o dado e mova seu peão até uma porta.</div>' : '')+
+          '<div class="row">'+
+            (myTurn && myRoom && !jaSugeriuNestaVisita ?
+              '<button onclick="__actions.openSuggest()" class="'+(podeSugerirAgora?'pulse-action':'')+'">Fazer Palpite</button>' :
+              '<button disabled title="'+(!myTurn ? 'Aguarde a sua vez.' : !myRoom ? 'Você precisa estar dentro de uma sala.' : 'Você já fez um palpite nesta sala. Saia e entre novamente para poder sugerir de novo.')+'">Fazer Palpite</button>'
+            )+
+            (myTurn ? '<button onclick="__actions.passTurn()" class="'+(deveriaPassarAgora?'pulse-action':'')+'">Passar a Vez</button>' : '')+
+            (!me.eliminated && myTurn && myRoom ?
+              '<button class="danger" onclick="__actions.openAccuse()">Acusação Final</button>' :
+              (!me.eliminated ? '<button class="danger" disabled title="'+(!myTurn ? 'Aguarde a sua vez.' : 'Você precisa estar dentro de uma sala.')+'">Acusação Final</button>' : '')
+            )+
+          '</div>'+
+        '</div>';
+    }
 
     if(state.notifications.length){
       html += '<div class="panel">'+
@@ -1050,6 +1065,19 @@ function render(){
   else if(state.screen==='gone') html = renderGone();
   app.innerHTML = html;
   if(state.showSuggestModal) attachSuggestModalDrag();
+
+  // renderGame() já preenche #acoes-painel com o conteúdo real quando
+  // há uma partida em andamento; fora disso, deixa um estado padrão.
+  if(state.screen!=='game' || !state.room){
+    var acoesEl = document.getElementById('acoes-painel');
+    if(acoesEl){
+      acoesEl.innerHTML =
+        '<div class="panel-handle"><h3>Ações</h3>'+
+          '<button type="button" class="panel-toggle" onclick="if(window.closePanelNav) window.closePanelNav();">_</button>'+
+        '</div>'+
+        '<div class="panel-body"><div class="panel-empty">Sem partida ativa no momento.</div></div>';
+    }
+  }
 }
 
 // arrasta o modal "Fazer um palpite" pela barra do topo. Precisa ser

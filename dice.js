@@ -33,11 +33,11 @@
     if(!el) return;
 
     el.innerHTML =
-      '<div class="dice-handle">'+
+      '<div class="panel-handle">'+
         '<h3>Dado</h3>'+
-        '<button type="button" class="dice-toggle">_</button>'+
+        '<button type="button" class="panel-toggle">_</button>'+
       '</div>'+
-      '<div class="dice-body">'+
+      '<div class="panel-body">'+
         '<p class="dice-hint">Clique no dado para rolar</p>' +
         '<div class="dice-stage"><div class="dice">' +
           faceHTML(1,'f1')+faceHTML(2,'f2')+faceHTML(3,'f3')+
@@ -49,8 +49,8 @@
         '<div><span class="dice-sync">Dado local</span></div>'+
       '</div>';
 
-    var handle    = el.querySelector('.dice-handle');
-    var toggleBtn = el.querySelector('.dice-toggle');
+    var handle    = el.querySelector('.panel-handle');
+    var toggleBtn = el.querySelector('.panel-toggle');
     var stage  = el.querySelector('.dice-stage');
     var hintEl = el.querySelector('.dice-hint');
     var dice   = el.querySelector('.dice');

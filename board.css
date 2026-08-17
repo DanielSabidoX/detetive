@@ -76,12 +76,7 @@ linear-gradient(
 #9da6a8 60%,
 #676f72 100%);
   /* ===== fim das cores das salas ===== */
-
-  box-sizing: border-box;
-  background: var(--floating-bg, rgba(20,16,12,.94));
-  user-select: none;
-  font-family: 'Courier Prime', monospace;
-  color: var(--paper, #ece0c4);
+  /* box-sizing/background/font/cor já vêm de panels.css */
 }
 
 .tab-room{
@@ -155,36 +150,6 @@ linear-gradient(
 .tab-room{
     outline:2px solid rgba(255,255,255,.18);
     outline-offset:-6px;
-}
-
-#tabuleiro-painel .tab-handle{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 14px;
-  border-bottom: 1px solid rgba(212,175,102,.25);
-}
-#tabuleiro-painel .tab-handle h3{
-  margin:0;font-family:'Oswald',sans-serif;font-size:14px;
-  letter-spacing:.15em;text-transform:uppercase;color:var(--gold,#b8863b);
-}
-#tabuleiro-painel .tab-toggle{
-  background:none;border:1px solid var(--gold,#b8863b);color:var(--gold-bright,#d9a44f);
-  font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-  padding:4px 10px;border-radius:3px;cursor:pointer;
-}
-#tabuleiro-painel .tab-toggle:hover{background:var(--gold,#b8863b);color:var(--ink-on-gold, #1a1509);}
-
-#tabuleiro-painel .tab-body{
-  padding: 14px;
-}
-
-#tabuleiro-painel .tab-status{
-  font-size: 10px;letter-spacing:.15em;text-transform:uppercase;
-  color: var(--muted,#a89a7d); margin-bottom: 10px; text-align:center;
-}
-#tabuleiro-painel .tab-status.on{ color: var(--ok,#5f8a52); }
-
-#tabuleiro-painel .tab-empty{
-  font-size:12px;color:var(--muted,#a89a7d);font-style:italic;text-align:center;padding:20px 6px;
 }
 
 /* ===== grade do tabuleiro ===== */

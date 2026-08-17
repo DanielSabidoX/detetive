@@ -371,18 +371,18 @@
     if(!host) return;
 
     host.innerHTML =
-      '<div class="bot-handle">'+
+      '<div class="panel-handle">'+
         '<h3>Detetives IA</h3>'+
-        '<button type="button" class="bot-toggle">_</button>'+
+        '<button type="button" class="panel-toggle">_</button>'+
       '</div>'+
-      '<div class="bot-body">'+
-        '<div class="bot-status">Sem sala ativa</div>'+
+      '<div class="panel-body">'+
+        '<div class="panel-status">Sem sala ativa</div>'+
         '<div class="bot-content"></div>'+
       '</div>';
 
-    var handle    = host.querySelector('.bot-handle');
-    var toggleBtn = host.querySelector('.bot-toggle');
-    var statusEl  = host.querySelector('.bot-status');
+    var handle    = host.querySelector('.panel-handle');
+    var toggleBtn = host.querySelector('.panel-toggle');
+    var statusEl  = host.querySelector('.panel-status');
     var contentEl = host.querySelector('.bot-content');
 
     // ---------- botão "_" fecha o painel e volta pra barra de abas ----------
@@ -407,13 +407,13 @@
       if(!room){
         statusEl.textContent = 'Sem sala ativa';
         statusEl.classList.remove('on');
-        contentEl.innerHTML = '<div class="bot-empty">Entre em uma sala para ver este painel.</div>';
+        contentEl.innerHTML = '<div class="panel-empty">Entre em uma sala para ver este painel.</div>';
         return;
       }
       if(!isHost()){
         statusEl.textContent = 'Sincronizado — sala ' + roomCode;
         statusEl.classList.add('on');
-        contentEl.innerHTML = '<div class="bot-empty">Só o anfitrião controla os detetives IA.</div>';
+        contentEl.innerHTML = '<div class="panel-empty">Só o anfitrião controla os detetives IA.</div>';
         return;
       }
 
@@ -429,23 +429,23 @@
           (bots.length ? bots.map(function(b){
             return '<div class="bot-row"><span>🤖 '+escHtml(b.name)+'</span>' +
               '<button type="button" class="bot-remove" data-id="'+escHtml(b.id)+'">remover</button></div>';
-          }).join('') : '<div class="bot-empty">Nenhum detetive IA na sala.</div>') +
+          }).join('') : '<div class="panel-empty">Nenhum detetive IA na sala.</div>') +
         '</div>';
 
         if(total < MAX_PLAYERS){
           html += '<button type="button" class="bot-add">+ Adicionar Detetive IA</button>';
         } else {
-          html += '<div class="bot-hint">Sala cheia ('+MAX_PLAYERS+' detetives no máximo).</div>';
+          html += '<div class="panel-hint">Sala cheia ('+MAX_PLAYERS+' detetives no máximo).</div>';
         }
       } else if(room.phase === 'playing'){
         html += '<div class="bot-list">' +
           (bots.length ? bots.map(function(b){
             return '<div class="bot-row"><span>🤖 '+escHtml(b.name)+(b.eliminated?' (eliminado)':'')+'</span></div>';
-          }).join('') : '<div class="bot-empty">Nenhum detetive IA nesta partida.</div>') +
+          }).join('') : '<div class="panel-empty">Nenhum detetive IA nesta partida.</div>') +
         '</div>' +
-        '<div class="bot-hint">Os detetives IA jogam sozinhos enquanto esta aba estiver aberta.</div>';
+        '<div class="panel-hint">Os detetives IA jogam sozinhos enquanto esta aba estiver aberta.</div>';
       } else {
-        html += '<div class="bot-empty">Disponível na sala de espera.</div>';
+        html += '<div class="panel-empty">Disponível na sala de espera.</div>';
       }
 
       contentEl.innerHTML = html;
