@@ -34,6 +34,17 @@ var LOCAIS = [
     "Salão de Jogos"
 ];
 
+var NOTES_LOCATION_KEY = 'casoArquivado_notes_location_v1';
+function loadNotesLocation(){
+  try{
+    var v = localStorage.getItem(NOTES_LOCATION_KEY);
+    return (v==='menu') ? 'menu' : 'painel'; // 'painel' é o padrão
+  }catch(e){ return 'painel'; }
+}
+function saveNotesLocation(loc){
+  try{ localStorage.setItem(NOTES_LOCATION_KEY, loc); }catch(e){}
+}
+
 var state = {
   screen: 'home',
   name: '',
@@ -44,6 +55,7 @@ var state = {
   hand: [],
   notifications: [],
   notes: buildEmptyNotes(),
+  notesLocation: loadNotesLocation(), // 'painel' (tela do jogo) ou 'menu' (aba própria)
   error: '',
   joinError: '',
   showCardModal: null,
@@ -869,15 +881,15 @@ function renderGame(){
       '<p class="hint">Clique em uma carta para mostrá-la em segredo a um jogador específico.</p>'+
     '</div>';
 
-    html += '<div class="panel notes-panel">'+
-      '<div class="section-title"><h2>Ficha de Anotações</h2></div>'+
-      '<p class="hint">Clique em um item para alternar: em branco → descartado (✕) → suspeito (?) → em branco.</p>'+
-      '<div class="notes-grid">'+
-        notesColumn('suspeito','Suspeitos',SUSPEITOS)+
-        notesColumn('arma','Armas',ARMAS)+
-        notesColumn('local','Cômodos',LOCAIS)+
-      '</div>'+
-    '</div>';
+    if(state.notesLocation==='painel'){
+      html += '<div class="panel notes-panel">'+
+        '<div class="section-title"><h2>Ficha de Anotações</h2>'+
+          '<button type="button" class="link small" onclick="__actions.toggleNotesLocation()" title="Mover a ficha para o menu">📌 Mover pro menu</button>'+
+        '</div>'+
+        renderNotesInner()+
+      '</div>';
+    }
+    atualizarNotasPainel();
 
     // em qual sala (se houver) o meu peão está agora, segundo o tabuleiro
     var myRoom = (typeof window.boardCurrentRoomOf === 'function') ? window.boardCurrentRoomOf(state.playerId) : null;
@@ -997,6 +1009,17 @@ function renderGame(){
   return html;
 }
 
+// miolo da ficha de anotações — igual nos dois locais possíveis (painel
+// principal ou aba do menu), só muda o que envolve por fora
+function renderNotesInner(){
+  return '<p class="hint">Clique em um item para alternar: em branco → descartado (✕) → suspeito (?) → em branco.</p>'+
+    '<div class="notes-grid">'+
+      notesColumn('suspeito','Suspeitos',SUSPEITOS)+
+      notesColumn('arma','Armas',ARMAS)+
+      notesColumn('local','Cômodos',LOCAIS)+
+    '</div>';
+}
+
 function notesColumn(cat, label, items){
   return '<div class="notes-col">'+
     '<div class="notes-col-title">'+esc(label)+'</div>'+
@@ -1068,7 +1091,10 @@ function render(){
 
   // renderGame() já preenche #acoes-painel com o conteúdo real quando
   // há uma partida em andamento; fora disso, deixa um estado padrão.
+  // renderGame() já chama atualizarNotasPainel() quando há partida; fora
+  // disso, garante que o painel mostre o estado "sem partida ativa"
   if(state.screen!=='game' || !state.room){
+    atualizarNotasPainel();
     var acoesEl = document.getElementById('acoes-painel');
     if(acoesEl){
       acoesEl.innerHTML =
@@ -1116,8 +1142,40 @@ function attachSuggestModalDrag(){
   handle.addEventListener('pointercancel', stop);
 }
 
+// preenche #notas-painel de acordo com o local escolhido pelo usuário —
+// se estiver "no menu", mostra a ficha real; se estiver "no painel"
+// (dentro da tela do jogo), mostra um atalho pra trazê-la de volta pra cá
+function atualizarNotasPainel(){
+  var el = document.getElementById('notas-painel');
+  if(!el) return;
+  var emPartida = state.screen==='game' && !!state.room;
+  var corpo;
+  if(!emPartida){
+    corpo = '<div class="panel-empty">Sem partida ativa no momento.</div>';
+  } else if(state.notesLocation==='menu'){
+    corpo = renderNotesInner();
+  } else {
+    corpo = '<div class="panel-empty">Sua ficha de anotações está fixada no painel principal do jogo.</div>'+
+            '<div style="text-align:center;margin-top:10px;">'+
+              '<button type="button" onclick="__actions.toggleNotesLocation()">📌 Trazer para o menu</button>'+
+            '</div>';
+  }
+  el.innerHTML =
+    '<div class="panel-handle"><h3>Anotações</h3><div style="display:flex;gap:6px;">'+
+      (emPartida && state.notesLocation==='menu' ?
+        '<button type="button" class="panel-toggle" onclick="__actions.toggleNotesLocation()" title="Mover para o painel principal">📌</button>' : '')+
+      '<button type="button" class="panel-toggle" onclick="if(window.closePanelNav) window.closePanelNav();">_</button>'+
+    '</div></div>'+
+    '<div class="panel-body">'+corpo+'</div>';
+}
+
 window.__actions = {
   createRoom: createRoom,
+  toggleNotesLocation: function(){
+    state.notesLocation = (state.notesLocation==='menu') ? 'painel' : 'menu';
+    saveNotesLocation(state.notesLocation);
+    render();
+  },
   joinRoom: joinRoom,
   startGame: startGame,
   cancelRoom: cancelRoom,
