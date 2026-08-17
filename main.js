@@ -45,6 +45,17 @@ function saveNotesLocation(loc){
   try{ localStorage.setItem(NOTES_LOCATION_KEY, loc); }catch(e){}
 }
 
+var HAND_LOCATION_KEY = 'casoArquivado_hand_location_v1';
+function loadHandLocation(){
+  try{
+    var v = localStorage.getItem(HAND_LOCATION_KEY);
+    return (v==='painel') ? 'painel' : 'menu'; // 'menu' é o padrão aqui
+  }catch(e){ return 'menu'; }
+}
+function saveHandLocation(loc){
+  try{ localStorage.setItem(HAND_LOCATION_KEY, loc); }catch(e){}
+}
+
 var state = {
   screen: 'home',
   name: '',
@@ -56,6 +67,7 @@ var state = {
   notifications: [],
   notes: buildEmptyNotes(),
   notesLocation: loadNotesLocation(), // 'painel' (tela do jogo) ou 'menu' (aba própria)
+  handLocation: loadHandLocation(),   // idem, pras cartas — padrão é 'menu'
   error: '',
   joinError: '',
   showCardModal: null,
@@ -868,18 +880,15 @@ function renderGame(){
   }
 
   if(!ended && !isSpectator){
-    html += '<div class="panel">'+
-      '<div class="section-title"><h2>Suas Cartas</h2></div>'+
-      '<div class="hand">'+
-        (state.hand.length ? state.hand.map(function(c){
-          var cat = cardCategory(c);
-          return '<div class="card '+cat+'" onclick="__actions.openShowCard(\''+esc(c).replace(/'/g,"\\'")+'\')">'+
-            '<img src="'+esc(cardImagePath(c))+'" alt="'+esc(c)+'" class="card-image">'+
-          '</div>';
-        }).join('') : '<div class="empty">Nenhuma carta.</div>')+
-      '</div>'+
-      '<p class="hint">Clique em uma carta para mostrá-la em segredo a um jogador específico.</p>'+
-    '</div>';
+    if(state.handLocation==='painel'){
+      html += '<div class="panel">'+
+        '<div class="section-title"><h2>Suas Cartas</h2>'+
+          '<button type="button" class="link small" onclick="__actions.toggleHandLocation()" title="Mover para o menu">📌 Mover pro menu</button>'+
+        '</div>'+
+        renderHandInner()+
+      '</div>';
+    }
+    atualizarCartasPainel();
 
     if(state.notesLocation==='painel'){
       html += '<div class="panel notes-panel">'+
@@ -1009,6 +1018,19 @@ function renderGame(){
   return html;
 }
 
+// miolo de "Suas Cartas" — igual nos dois locais possíveis
+function renderHandInner(){
+  return '<div class="hand">'+
+      (state.hand.length ? state.hand.map(function(c){
+        var cat = cardCategory(c);
+        return '<div class="card '+cat+'" onclick="__actions.openShowCard(\''+esc(c).replace(/'/g,"\\'")+'\')">'+
+          '<img src="'+esc(cardImagePath(c))+'" alt="'+esc(c)+'" class="card-image">'+
+        '</div>';
+      }).join('') : '<div class="empty">Nenhuma carta.</div>')+
+    '</div>'+
+    '<p class="hint">Clique em uma carta para mostrá-la em segredo a um jogador específico.</p>';
+}
+
 // miolo da ficha de anotações — igual nos dois locais possíveis (painel
 // principal ou aba do menu), só muda o que envolve por fora
 function renderNotesInner(){
@@ -1095,6 +1117,7 @@ function render(){
   // disso, garante que o painel mostre o estado "sem partida ativa"
   if(state.screen!=='game' || !state.room){
     atualizarNotasPainel();
+    atualizarCartasPainel();
     var acoesEl = document.getElementById('acoes-painel');
     if(acoesEl){
       acoesEl.innerHTML =
@@ -1142,6 +1165,33 @@ function attachSuggestModalDrag(){
   handle.addEventListener('pointercancel', stop);
 }
 
+// preenche #cartas-painel de acordo com o local escolhido — mesma lógica
+// de atualizarNotasPainel(), só que o padrão aqui é ficar no menu
+function atualizarCartasPainel(){
+  var el = document.getElementById('cartas-painel');
+  if(!el) return;
+  var emPartida = state.screen==='game' && !!state.room && state.room.phase!=='ended';
+  var podeVer = emPartida && !state.isSpectator; // espectador não tem cartas
+  var corpo;
+  if(!podeVer){
+    corpo = '<div class="panel-empty">Sem cartas para mostrar no momento.</div>';
+  } else if(state.handLocation==='menu'){
+    corpo = renderHandInner();
+  } else {
+    corpo = '<div class="panel-empty">Suas cartas estão fixadas no painel principal do jogo.</div>'+
+            '<div style="text-align:center;margin-top:10px;">'+
+              '<button type="button" onclick="__actions.toggleHandLocation()">📌 Trazer para o menu</button>'+
+            '</div>';
+  }
+  el.innerHTML =
+    '<div class="panel-handle"><h3>Suas Cartas</h3><div style="display:flex;gap:6px;">'+
+      (podeVer && state.handLocation==='menu' ?
+        '<button type="button" class="panel-toggle" onclick="__actions.toggleHandLocation()" title="Mover para o painel principal">📌</button>' : '')+
+      '<button type="button" class="panel-toggle" onclick="if(window.closePanelNav) window.closePanelNav();">_</button>'+
+    '</div></div>'+
+    '<div class="panel-body">'+corpo+'</div>';
+}
+
 // preenche #notas-painel de acordo com o local escolhido pelo usuário —
 // se estiver "no menu", mostra a ficha real; se estiver "no painel"
 // (dentro da tela do jogo), mostra um atalho pra trazê-la de volta pra cá
@@ -1174,6 +1224,11 @@ window.__actions = {
   toggleNotesLocation: function(){
     state.notesLocation = (state.notesLocation==='menu') ? 'painel' : 'menu';
     saveNotesLocation(state.notesLocation);
+    render();
+  },
+  toggleHandLocation: function(){
+    state.handLocation = (state.handLocation==='menu') ? 'painel' : 'menu';
+    saveHandLocation(state.handLocation);
     render();
   },
   joinRoom: joinRoom,

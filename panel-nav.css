@@ -83,10 +83,11 @@ body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ---- painéis: escondidos por padrão, tela cheia quando abertos ---- */
-#acoes-painel, #notas-painel, #dado, #tabuleiro-painel, #solucao-painel, #voz-painel, #bot-painel, #admin-painel{
+#acoes-painel, #cartas-painel, #notas-painel, #dado, #tabuleiro-painel, #solucao-painel, #voz-painel, #bot-painel, #admin-painel{
   display: none !important;
 }
 #acoes-painel.panel-open,
+#cartas-painel.panel-open,
 #notas-painel.panel-open,
 #dado.panel-open,
 #tabuleiro-painel.panel-open,
@@ -128,6 +129,7 @@ body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
   /* no desktop, o painel aberto vira uma "página" larga à direita da
      barra lateral, em vez de ocupar a tela inteira de ponta a ponta */
   #acoes-painel.panel-open,
+  #cartas-painel.panel-open,
   #notas-painel.panel-open,
   #dado.panel-open,
   #tabuleiro-painel.panel-open,

@@ -18,6 +18,7 @@
 
   var TABS = [
     { id:'acoes',     label:'Ações',      icon:'🎯', sel:'#acoes-painel' },
+    { id:'cartas',    label:'Cartas',     icon:'🃏', sel:'#cartas-painel' },
     { id:'notas',     label:'Anotações',  icon:'📝', sel:'#notas-painel' },
     { id:'dado',      label:'Dado',       icon:'🎲', sel:'#dado' },
     { id:'tabuleiro', label:'Tabuleiro',  icon:'🗺️', sel:'#tabuleiro-painel' },

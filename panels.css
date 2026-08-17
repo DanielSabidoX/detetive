@@ -14,7 +14,7 @@
    Uso: <link rel="stylesheet" href="panels.css"> (depois de theme.css,
    antes dos CSS de cada painel individual) */
 
-#acoes-painel, #notas-painel, #dado, #tabuleiro-painel, #solucao-painel, #voz-painel, #bot-painel, #admin-painel{
+#acoes-painel, #cartas-painel, #notas-painel, #dado, #tabuleiro-painel, #solucao-painel, #voz-painel, #bot-painel, #admin-painel{
   box-sizing: border-box;
   background: var(--floating-bg, rgba(20,16,12,.94));
   user-select: none;
