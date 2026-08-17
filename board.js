@@ -385,19 +385,22 @@
         '<h3>Tabuleiro</h3>'+
         '<button type="button" class="panel-toggle">_</button>'+
       '</div>'+
-      '<div class="panel-body">'+
-        '<div class="panel-status">Sem sala ativa</div>'+
-        '<div class="tab-admin" hidden>'+
-          '<label class="tab-sync-toggle">'+
-            '<input type="checkbox" class="tab-sync-check">'+
-            '<span>Zoom sincronizado para todos</span>'+
-          '</label>'+
+      '<div class="panel-body tab-panel-body">'+
+        '<div class="tab-main">'+
+          '<div class="tab-board-wrap"></div>'+
         '</div>'+
-        '<div class="tab-sync-note" hidden>Zoom sincronizado com todos os jogadores</div>'+
-        '<div class="tab-move-controls" hidden></div>'+
-        '<div class="tab-board-wrap"></div>'+
-        '<div class="tab-legend"></div>'+
-      
+        '<div class="tab-side">'+
+          '<div class="panel-status">Sem sala ativa</div>'+
+          '<div class="tab-admin" hidden>'+
+            '<label class="tab-sync-toggle">'+
+              '<input type="checkbox" class="tab-sync-check">'+
+              '<span>Zoom sincronizado para todos</span>'+
+            '</label>'+
+          '</div>'+
+          '<div class="tab-sync-note" hidden>Zoom sincronizado com todos os jogadores</div>'+
+          '<div class="tab-move-controls" hidden></div>'+
+          '<div class="tab-legend"></div>'+
+        '</div>'+
       '</div>';
 
     var handle    = host.querySelector('.panel-handle');

@@ -126,8 +126,9 @@ body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 }
 
 @media (min-width: 641px){
-  /* no desktop, o painel aberto vira uma "página" larga à direita da
-     barra lateral, em vez de ocupar a tela inteira de ponta a ponta */
+  /* no desktop, o painel aberto ocupa toda a largura restante ao lado
+     da barra lateral, igual ao aproveitamento de tela que já acontece
+     no celular (em vez de ficar num "cartão" estreito centralizado) */
   #acoes-painel.panel-open,
   #cartas-painel.panel-open,
   #notas-painel.panel-open,
@@ -139,7 +140,7 @@ body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
   #solucao-painel.panel-open{
     left: 104px !important; right: 16px !important;
     width: auto !important;
-    max-width: 560px !important;
+    max-width: none !important;
     transform: none !important;
     top: 16px !important;
     bottom: 16px !important;

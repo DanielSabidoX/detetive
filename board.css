@@ -79,6 +79,25 @@ linear-gradient(
   /* box-sizing/background/font/cor já vêm de panels.css */
 }
 
+/* ===== layout em duas colunas no desktop (mapa à esquerda, texto/controles
+   à direita) — no celular continua empilhado como sempre foi ===== */
+.tab-side{ min-width: 0; }
+@media (min-width: 641px){
+  #tabuleiro-painel .tab-panel-body{
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  #tabuleiro-painel .tab-main{
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  #tabuleiro-painel .tab-side{
+    flex: 0 0 240px;
+    max-width: 240px;
+  }
+}
+
 .tab-room{
     position:relative;
     overflow:hidden;

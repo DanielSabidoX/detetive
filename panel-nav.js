@@ -24,7 +24,7 @@
     { id:'tabuleiro', label:'Tabuleiro',  icon:'🗺️', sel:'#tabuleiro-painel' },
     { id:'solucao',   label:'Solução',    icon:'🔍', sel:'#solucao-painel' },
     { id:'voz',       label:'Voz',        icon:'🎤', sel:'#voz-painel' },
-    { id:'bots',      label:'Bots',       icon:'🤖', sel:'#bot-painel' },
+    { id:'bots',      label:'Bots',       icon:'🤖', sel:'#bot-painel', hostOnly:true },
     { id:'admin',     label:'Anfitrião',  icon:'👑', sel:'#admin-painel', hostOnly:true }
   ];
 
@@ -122,18 +122,24 @@
       if(buttons.acoes) buttons.acoes.classList.add('needs-action');
     }
 
+    function aplicarVisibilidadeHost(souHost){
+      TABS.forEach(function(t){
+        if(t.hostOnly && buttons[t.id]) buttons[t.id].hidden = !souHost;
+      });
+    }
+
     function listenRoom(code){
       if(unsubRoom){ unsubRoom(); unsubRoom=null; }
       roomCode = code;
       if(!code || typeof db === 'undefined'){
-        if(buttons.admin) buttons.admin.hidden = true;
+        aplicarVisibilidadeHost(false);
         return;
       }
       unsubRoom = db.collection('rooms').doc(code).onSnapshot(function(snap){
         var d = snap.exists ? snap.data() : null;
         var s = getSession();
         var souHost = !!(d && s && s.pid && d.hostId===s.pid);
-        if(buttons.admin) buttons.admin.hidden = !souHost;
+        aplicarVisibilidadeHost(souHost);
         atualizarPulso(d, s);
       }, function(err){
         console.warn('[abas] falha ao ler a sala:', err && err.code, err && err.message);
