@@ -38,8 +38,8 @@ var NOTES_LOCATION_KEY = 'casoArquivado_notes_location_v1';
 function loadNotesLocation(){
   try{
     var v = localStorage.getItem(NOTES_LOCATION_KEY);
-    return (v==='menu') ? 'menu' : 'painel'; // 'painel' é o padrão
-  }catch(e){ return 'painel'; }
+    return (v==='painel') ? 'painel' : 'menu'; // 'menu' é o padrão
+  }catch(e){ return 'menu'; }
 }
 function saveNotesLocation(loc){
   try{ localStorage.setItem(NOTES_LOCATION_KEY, loc); }catch(e){}
@@ -66,7 +66,7 @@ var state = {
   hand: [],
   notifications: [],
   notes: buildEmptyNotes(),
-  notesLocation: loadNotesLocation(), // 'painel' (tela do jogo) ou 'menu' (aba própria)
+  notesLocation: loadNotesLocation(), // 'painel' (tela do jogo) ou 'menu' (aba própria) — padrão agora é 'menu'
   handLocation: loadHandLocation(),   // idem, pras cartas — padrão é 'menu'
   error: '',
   joinError: '',
@@ -474,6 +474,7 @@ async function passTurn(){
     turnIndex: fv().increment(1),
     log: fv().arrayUnion({text:state.name+' passou a vez.', type:'normal', ts:nowTs()})
   });
+  if(typeof window.closePanelNav === 'function') window.closePanelNav();
 }
 
 async function makeSuggestion(){

@@ -236,6 +236,11 @@ linear-gradient(
     border-radius:50%;
     transform:translate(-50%,-50%);
 
+    /* não intercepta clique/toque: deixa passar direto pra célula por
+       baixo — senão fica impossível clicar numa casa que já tem peão
+       (o peão "tampa" a célula) */
+    pointer-events: none;
+
     /* aro externo escuro + topo claro */
     background:
         radial-gradient(circle at 35% 35%,

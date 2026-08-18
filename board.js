@@ -1425,6 +1425,18 @@
       renderWeapons();
     }
 
+    // Atualiza só peões/armas/legenda, sem reconstruir a grade nem
+    // recalcular o tamanho da célula. Evita o "zoom" que acontecia antes:
+    // toda atualização da sala (inclusive mover 1 casa) reconstruía o
+    // tabuleiro inteiro do zero, medindo a largura do container de novo —
+    // e como essa medição podia sair ligeiramente diferente da primeira
+    // vez, o tamanho das células mudava visivelmente.
+    function refreshBoardData(){
+      renderLegend();
+      renderPawns();
+      renderWeapons();
+    }
+
     // Quem é o anfitrião: aceita os formatos mais comuns do room/session
     function detectHost(roomData){
       var me = getSession();
@@ -1445,7 +1457,7 @@
         players = (d && d.players) ? d.players : [];
         isHost = detectHost(d);
         renderSyncUi();
-        fullRender();
+        if(!boardEl){ fullRender(); } else { refreshBoardData(); }
         renderMoveControls();
       }, function(err){
         console.warn('[tabuleiro] falha ao ler jogadores da sala:', err && err.code, err && err.message);
