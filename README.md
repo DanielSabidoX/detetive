@@ -103,6 +103,16 @@ Se quiser bots mais ousados/enganadores, é só subir CHANCE_DE_BLEFE (por exemp
 
 Nota importante: o blefe só acontece nas sugestões. A acusação final continua 100% baseada em certeza real — um bot nunca vai te enganar fingindo estar errado na hora de acusar, isso quebraria a lógica do jogo (ele só acusa quando tem certeza matemática da resposta).
 
+| Modelo                | Tipo           |
+| --------------------- | -------------- |
+| `openai/gpt-oss-20b`  | Texto          |
+| `openai/gpt-oss-120b` | Texto          | melhor
+| `qwen/qwen3.6-27b`    | Texto + imagem |
+| `allam-2-7b`          | Texto          |
+| `groq/compound`       | Texto          |
+| `groq/compound-mini`  | Texto          |
+
+
 ## Como jogar
 
 1. Um jogador clica em "Criar Sala" e recebe um código de 5 caracteres

@@ -196,9 +196,10 @@
   // ---- Groq (IA da sugestão) ----
   // Uso pessoal: chave direto no código, sem proxy. Gere a sua em
   // https://console.groq.com/keys
-  var GROQ_API_KEY = 'COLOQUE_SUA_CHAVE_AQUI';
-  var GROQ_MODEL = 'llama-3.3-70b-versatile';
+  var GROQ_API_KEY = '';
+  var GROQ_MODEL = 'openai/gpt-oss-120b';
   var GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+  
 
   // Pede pra Groq escolher a sugestão mais estratégica, olhando o que
   // ainda não foi eliminado e o histórico recente da sala. Se a chave

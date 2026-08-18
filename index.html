@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="admin.css">
 <link rel="stylesheet" href="voice.css">
 <link rel="stylesheet" href="bot.css"> <!-- NOVO -->
+<link rel="stylesheet" href="assistant.css"> <!-- NOVO -->
 <link rel="stylesheet" href="panel-nav.css"> <!-- ATUALIZADO: era mobile-nav.css, agora vale sempre -->
 <link rel="stylesheet" href="admin-launcher.css">
 </head>
@@ -34,6 +35,7 @@
 <div id="acoes-painel"></div> <!-- NOVO: ações do jogo (antes ficavam soltas em #app) -->
 <div id="cartas-painel"></div> <!-- NOVO: suas cartas, local escolhível (padrão: menu) -->
 <div id="notas-painel"></div> <!-- NOVO: ficha de anotações, local escolhível pelo usuário -->
+<div id="assistente-painel"></div> <!-- NOVO: assistente de IA pessoal por jogador -->
 <div id="panel-tabbar"></div> <!-- ATUALIZADO: era mobile-tabbar -->
 
 
@@ -49,6 +51,7 @@
 <script src="suspense_music.js"></script>
 <script src="voice.js"></script>
 <script src="bot.js"></script> <!-- NOVO -->
+<script src="assistant.js"></script> <!-- NOVO -->
 <script src="panel-nav.js"></script> <!-- ATUALIZADO: era mobile-nav.js, agora vale sempre -->
 <script>
   function safeMount(fn, sel){ try{ if(typeof window[fn]==='function') window[fn](sel); }catch(e){ console.warn(fn, e); } }
@@ -59,6 +62,7 @@
   safeMount('mountAdmin','#admin-painel');
   safeMount('mountVoice','#voz-painel');
   safeMount('mountBot','#bot-painel'); // NOVO
+  safeMount('mountAssistant','#assistente-painel'); // NOVO
   safeMount('mountPanelNav','#panel-tabbar'); // ATUALIZADO: era mountMobileNav
 </script>
 

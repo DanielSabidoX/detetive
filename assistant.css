@@ -1,0 +1,99 @@
+/* ===== Assistente IA pessoal — Caso Arquivado =====
+   Cabeçalho/corpo/status compartilhados vêm de panels.css — aqui só
+   fica o que é específico deste painel.
+   Uso: <link rel="stylesheet" href="assistant.css"> (depois de panels.css) */
+
+.ia-hint{
+  font-size: 11.5px;
+  color: var(--muted, #a89a7d);
+  line-height: 1.4;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: rgba(212,175,102,.06);
+  border-radius: var(--radius-sm, 3px);
+}
+
+.ia-actions{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.ia-btn{
+  flex: 1 1 160px;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 600;
+  letter-spacing: .04em;
+  font-size: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm, 3px);
+  border: 1px solid var(--gold, #b8863b);
+  background: transparent;
+  color: var(--gold-bright, #d9a44f);
+  cursor: pointer;
+}
+.ia-btn:hover{ background: rgba(212,175,102,.12); }
+.ia-btn[disabled]{ opacity: .6; cursor: wait; }
+
+.ia-resultado{ display: flex; flex-direction: column; gap: 14px; }
+
+.ia-bloco{
+  border: 1px solid rgba(212,175,102,.2);
+  border-radius: var(--radius-sm, 3px);
+  padding: 12px;
+  background: rgba(0,0,0,.15);
+}
+.ia-bloco-titulo{
+  font-family: 'Oswald', sans-serif;
+  font-size: 11.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold-bright, #d9a44f);
+  margin-bottom: 8px;
+}
+
+.ia-aviso{
+  background: rgba(181,67,58,.12);
+  border: 1px solid var(--red-bright, #b5433a);
+  color: var(--paper, #ece0c4);
+  border-radius: var(--radius-sm, 3px);
+  padding: 8px 10px;
+  font-size: 12.5px;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.ia-erro{
+  background: rgba(181,67,58,.15);
+  border: 1px solid var(--red-bright, #b5433a);
+  color: var(--red-bright, #b5433a);
+  border-radius: var(--radius-sm, 3px);
+  padding: 8px 10px;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.ia-subtitulo{
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--gold, #b8863b);
+  margin: 10px 0 4px;
+}
+.ia-lista{
+  margin: 4px 0 8px;
+  padding-left: 18px;
+}
+.ia-lista li{
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin-bottom: 4px;
+  color: var(--paper, #ece0c4);
+}
+.ia-bloco p{
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0 0 8px;
+  color: var(--paper, #ece0c4);
+}

@@ -20,6 +20,7 @@
     { id:'acoes',     label:'Ações',      icon:'🎯', sel:'#acoes-painel' },
     { id:'cartas',    label:'Cartas',     icon:'🃏', sel:'#cartas-painel' },
     { id:'notas',     label:'Anotações',  icon:'📝', sel:'#notas-painel' },
+    { id:'ia',        label:'Assistente', icon:'🧠', sel:'#assistente-painel' },
     { id:'dado',      label:'Dado',       icon:'🎲', sel:'#dado' },
     { id:'tabuleiro', label:'Tabuleiro',  icon:'🗺️', sel:'#tabuleiro-painel' },
     { id:'solucao',   label:'Solução',    icon:'🔍', sel:'#solucao-painel' },

@@ -83,12 +83,13 @@ body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ---- painéis: escondidos por padrão, tela cheia quando abertos ---- */
-#acoes-painel, #cartas-painel, #notas-painel, #dado, #tabuleiro-painel, #solucao-painel, #voz-painel, #bot-painel, #admin-painel{
+#acoes-painel, #cartas-painel, #notas-painel, #assistente-painel, #dado, #tabuleiro-painel, #solucao-painel, #voz-painel, #bot-painel, #admin-painel{
   display: none !important;
 }
 #acoes-painel.panel-open,
 #cartas-painel.panel-open,
 #notas-painel.panel-open,
+#assistente-painel.panel-open,
 #dado.panel-open,
 #tabuleiro-painel.panel-open,
 #voz-painel.panel-open,
@@ -132,6 +133,7 @@ body{ padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
   #acoes-painel.panel-open,
   #cartas-painel.panel-open,
   #notas-painel.panel-open,
+  #assistente-painel.panel-open,
   #dado.panel-open,
   #tabuleiro-painel.panel-open,
   #voz-painel.panel-open,
