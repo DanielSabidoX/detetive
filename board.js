@@ -729,6 +729,9 @@
     var unsubRoomRead = null;
     var unsubBoard = null;
     var lastFocusAt = null;   // último palpite/acusação já enquadrado
+    var lastProcessedLogLen = 0;
+    var lastTurnIndex = null;
+    var highlightedCards = null; // {suspeito, arma, local} ou null
 
     function suspectColor(idx){
       var name = SUSPECTS[idx];
@@ -1423,6 +1426,7 @@
       renderLegend();
       renderPawns();
       renderWeapons();
+      applyCardHighlights();
     }
 
     // Atualiza só peões/armas/legenda, sem reconstruir a grade nem
@@ -1435,6 +1439,80 @@
       renderLegend();
       renderPawns();
       renderWeapons();
+      applyCardHighlights();
+    }
+
+    // ===== destaque piscante de cartas de palpite/acusação =====
+    // Quando alguém faz um palpite ou acusação final, os três cards (suspeito,
+    // arma, local) ficam piscando no tabuleiro para todos verem. O efeito
+    // para quando o jogador passa a vez e começa a jogada do próximo.
+
+    var SUGGEST_LOG_RE = /^(.+?) sugeriu: (.+?) \+ (.+?) \+ (.+?)\. Aguardando alguém mostrar uma carta\.$/;
+    var ACCUSE_LOG_RE  = /🏆 (.+?) resolveu o caso! A resposta era: (.+?) \+ (.+?) \+ (.+?)\./;
+
+    function checkTurnChange(){
+      var ti = roomData && roomData.turnIndex;
+      if(ti !== lastTurnIndex){
+        highlightedCards = null;
+        lastTurnIndex = ti;
+      }
+    }
+
+    function checkLogForHighlights(){
+      if(!roomData || !roomData.log) return;
+      var log = roomData.log;
+      if(log.length <= lastProcessedLogLen){
+        lastProcessedLogLen = log.length;
+        return;
+      }
+      var novos = log.slice(lastProcessedLogLen);
+      lastProcessedLogLen = log.length;
+      for(var i=0; i<novos.length; i++){
+        var text = novos[i].text || '';
+        var m = SUGGEST_LOG_RE.exec(text);
+        if(m){
+          highlightedCards = {suspeito: m[2], arma: m[3], local: m[4]};
+          continue;
+        }
+        m = ACCUSE_LOG_RE.exec(text);
+        if(m){
+          highlightedCards = {suspeito: m[2], arma: m[3], local: m[4]};
+        }
+      }
+    }
+
+    function clearCardHighlights(){
+      if(boardEl){
+        var old = boardEl.querySelectorAll('.blinking-card');
+        for(var i=0; i<old.length; i++){ old[i].classList.remove('blinking-card'); }
+      }
+    }
+
+    function applyCardHighlights(){
+      clearCardHighlights();
+      if(!highlightedCards || !boardEl) return;
+
+      var suspSlug = suspectSlugFor(highlightedCards.suspeito);
+      if(suspSlug){
+        var pawn = boardEl.querySelector('.tab-pawn[data-slug="'+suspSlug+'"]');
+        if(pawn) pawn.classList.add('blinking-card');
+      }
+
+      var armaSlug = weaponSlugFor(highlightedCards.arma);
+      if(armaSlug){
+        var weapon = boardEl.querySelector('.tab-weapon[data-slug="'+armaSlug+'"]');
+        if(weapon) weapon.classList.add('blinking-card');
+      }
+
+      var localSlug = slugify(highlightedCards.local);
+      if(localSlug){
+        var roomNames = boardEl.querySelectorAll('.tab-room-name');
+        for(var j=0; j<roomNames.length; j++){
+          if(slugify(roomNames[j].textContent) === localSlug){
+            roomNames[j].classList.add('blinking-card');
+          }
+        }
+      }
     }
 
     // Quem é o anfitrião: aceita os formatos mais comuns do room/session
@@ -1451,11 +1529,16 @@
     function listenRoom(code){
       if(unsubRoomRead){ unsubRoomRead(); unsubRoomRead=null; }
       if(!code || typeof db === 'undefined'){ return; }
+      lastProcessedLogLen = 0;
+      lastTurnIndex = null;
+      clearCardHighlights();
       unsubRoomRead = db.collection('rooms').doc(code).onSnapshot(function(snap){
         var d = snap.exists ? snap.data() : null;
         roomData = d;
         players = (d && d.players) ? d.players : [];
         isHost = detectHost(d);
+        checkTurnChange();
+        checkLogForHighlights();
         renderSyncUi();
         if(!boardEl){ fullRender(); } else { refreshBoardData(); }
         renderMoveControls();
@@ -1483,6 +1566,7 @@
 
         renderPawns();
         renderWeapons();
+        applyCardHighlights();
         renderMoveControls();
 
         // zoom automático quando qualquer jogador faz palpite/acusação

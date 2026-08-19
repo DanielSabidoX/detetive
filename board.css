@@ -394,3 +394,18 @@ linear-gradient(
 .weapon-svg .steel{
     fill:#d9d9d9;
 }
+
+/* ===== destaque piscante: cartas de um palpite/acusação ===== */
+@keyframes blink-pulse{
+  0%,100%{ opacity:1; filter:drop-shadow(0 0 3px var(--gold-bright,#d9a44f)) drop-shadow(0 0 6px var(--gold-bright,#d9a44f)); }
+  50%{ opacity:0.2; filter:none; }
+}
+.blinking-card{
+  animation:blink-pulse .7s ease-in-out infinite !important;
+  z-index:10 !important;
+}
+/* sobrepoem o glow do hover/normal para ficar visível mesmo sem hover */
+.tab-pawn.blinking-card,
+.tab-weapon.blinking-card{
+  filter:drop-shadow(0 0 4px var(--gold-bright,#d9a44f)) drop-shadow(0 0 8px var(--gold-bright,#d9a44f));
+}
