@@ -42,7 +42,7 @@
   // ---- Groq ----
   // Uso pessoal: chave direto no código, sem proxy (mesma lógica já usada
   // em bot.js). Gere a sua em https://console.groq.com/keys
-  var GROQ_API_KEY = '';
+  var GROQ_API_KEY = 'COLOQUE_SUA_CHAVE_AQUI';
   var GROQ_MODEL = 'openai/gpt-oss-120b';
   var GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
