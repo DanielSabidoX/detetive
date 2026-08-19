@@ -88,6 +88,7 @@ Qualquer hospedagem de site estático funciona. Opções simples e gratuitas:
 - **Netlify Drop** (https://app.netlify.com/drop) — arraste a pasta inteira e pronto, gera um link na hora
 - **Firebase Hosting** (já que você criou o projeto) — `npm install -g firebase-tools`, depois `firebase init hosting` e `firebase deploy`
 - **Vercel** — importe a pasta como projeto estático
+- fazer deploy: firebase deploy --only hosting
 
 Evite abrir só clicando duas vezes no `index.html` (`file://`) — alguns navegadores bloqueiam esse tipo de acesso a arquivos locais. Um servidor local simples também resolve para testar:
 

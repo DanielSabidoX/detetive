@@ -216,30 +216,60 @@
       return esquecidas;
     }
 
+    // calcula, por categoria, o que já está 100% eliminado (sua mão +
+    // cartas mostradas a você, IGNORANDO se a ficha foi marcada ou não —
+    // essa é a fonte da verdade) e o que ainda está em aberto, com um
+    // peso simples (marcado "?" pesa mais) pra estimar probabilidade.
+    function calcularCandidatos(dados){
+      var notas = dados.notas || { suspeito:{}, arma:{}, local:{} };
+      var conhecidoNao = {};
+      dados.mao.forEach(function(c){ conhecidoNao[c] = true; });
+      dados.mostradas.forEach(function(it){ conhecidoNao[it.card] = true; });
+
+      function processarCategoria(cat, todasAsOpcoes){
+        var restantes = [];
+        var pesos = {};
+        todasAsOpcoes.forEach(function(nome){
+          var marcadoDescartado = (notas[cat] && notas[cat][nome]) === 'x';
+          if(conhecidoNao[nome] || marcadoDescartado) return; // eliminado
+          restantes.push(nome);
+          var marcadoSuspeita = (notas[cat] && notas[cat][nome]) === '?';
+          pesos[nome] = marcadoSuspeita ? 2 : 1;
+        });
+        var somaPesos = restantes.reduce(function(s,n){ return s+pesos[n]; }, 0) || 1;
+        var comPercentual = restantes.map(function(nome){
+          return nome + ' (~' + Math.round(pesos[nome]/somaPesos*100) + '%)';
+        });
+        return { restantes: restantes, texto: comPercentual.join(', ') || '(nenhum — todos já eliminados, revise sua ficha)' };
+      }
+
+      return {
+        suspeito: processarCategoria('suspeito', SUSPEITOS),
+        arma: processarCategoria('arma', ARMAS),
+        local: processarCategoria('local', LOCAIS)
+      };
+    }
+
     function montarBlocoDados(dados){
       var mao = dados.mao.length ? dados.mao.join(', ') : '(nenhuma)';
       var mostradas = dados.mostradas.length
         ? dados.mostradas.map(function(it){ return it.card+' (mostrada por '+it.from+')'; }).join('; ')
         : '(nenhuma até agora)';
 
-      var notas = dados.notas || { suspeito:{}, arma:{}, local:{} };
-      function listarPorStatus(cat, status){
-        var chaves = cat==='suspeito' ? SUSPEITOS : cat==='arma' ? ARMAS : LOCAIS;
-        return chaves.filter(function(k){ return (notas[cat]&&notas[cat][k])===status; }).join(', ') || '(nenhum)';
-      }
-
+      var candidatos = calcularCandidatos(dados);
       var logTexto = dados.log.map(function(e){ return '['+e.ts+'] '+e.text; }).join('\n') || '(sem eventos ainda)';
 
-      return 'SUAS CARTAS (você tem certeza que NÃO são a resposta):\n'+mao+'\n\n'+
-        'CARTAS JÁ MOSTRADAS A VOCÊ POR OUTROS JOGADORES (também não são a resposta):\n'+mostradas+'\n\n'+
-        'SUA FICHA DE ANOTAÇÕES ATUAL:\n'+
-        '- Suspeitos descartados: '+listarPorStatus('suspeito','x')+'\n'+
-        '- Suspeitos marcados como possíveis: '+listarPorStatus('suspeito','?')+'\n'+
-        '- Armas descartadas: '+listarPorStatus('arma','x')+'\n'+
-        '- Armas marcadas como possíveis: '+listarPorStatus('arma','?')+'\n'+
-        '- Cômodos descartados: '+listarPorStatus('local','x')+'\n'+
-        '- Cômodos marcados como possíveis: '+listarPorStatus('local','?')+'\n\n'+
-        'REGISTRO PÚBLICO DA PARTIDA (mais recentes):\n'+logTexto;
+      return 'LISTAS FECHADAS DO JOGO (não existe NENHUM suspeito, arma ou cômodo além destes — nunca cite nomes fora destas listas):\n'+
+        '- Suspeitos possíveis no jogo: '+SUSPEITOS.join(', ')+'\n'+
+        '- Armas possíveis no jogo: '+ARMAS.join(', ')+'\n'+
+        '- Cômodos possíveis no jogo: '+LOCAIS.join(', ')+'\n\n'+
+        'SUAS CARTAS (certeza de que NÃO são a resposta):\n'+mao+'\n\n'+
+        'CARTAS JÁ MOSTRADAS A VOCÊ POR OUTROS JOGADORES (também certeza de que NÃO são a resposta):\n'+mostradas+'\n\n'+
+        'CANDIDATOS AINDA EM ABERTO, JÁ CALCULADOS PRA VOCÊ (com peso estimado — use estes números como base, não invente novos nomes nem novas porcentagens do zero):\n'+
+        '- Suspeitos em aberto: '+candidatos.suspeito.texto+'\n'+
+        '- Armas em aberto: '+candidatos.arma.texto+'\n'+
+        '- Cômodos em aberto: '+candidatos.local.texto+'\n\n'+
+        'REGISTRO PÚBLICO DA PARTIDA (mais recentes primeiro):\n'+logTexto;
     }
 
     function rodarConsulta(kind){
@@ -265,22 +295,47 @@
         var blocoDados = montarBlocoDados(dados);
 
         var instrucaoBase =
-          'Você é um assistente pessoal de UM jogador num jogo de dedução estilo Detetive/Clue. '+
-          'Você NÃO sabe e NUNCA deve tentar adivinhar ou inventar qual é a resposta correta do caso. '+
-          'Baseie-se SOMENTE nos dados abaixo, que pertencem exclusivamente a este jogador — nunca presuma '+
-          'cartas de outros jogadores além do que foi explicitamente mostrado a ele.\n\n'+
-          'Responda em português, formatado em tópicos curtos (use "- " no início de cada item), '+
-          'com pequenos subtítulos quando fizer sentido separar seções, para facilitar a leitura.\n\n';
+          'Você é o assistente pessoal de UM jogador específico, EM UMA PARTIDA REAL de um jogo de dedução '+
+          'estilo Detetive/Clue com listas de suspeitos, armas e cômodos PRÓPRIAS (diferentes do jogo clássico '+
+          'original — não use nomes como "Sr. Verde", "Conservatório", "Sala de Bilhar" ou qualquer outro nome '+
+          'que não esteja EXPLICITAMENTE nas listas fechadas abaixo). '+
+          'Você NÃO sabe e NUNCA deve tentar adivinhar ou inventar qual é a resposta correta do caso — mas PODE '+
+          'e DEVE trabalhar com as probabilidades já calculadas nos dados fornecidos. '+
+          'Baseie-se SOMENTE nos dados abaixo, que pertencem exclusivamente a este jogador.\n\n'+
+          'REGRAS DE FORMATO E CONTEÚDO (importantes):\n'+
+          '- Use APENAS os nomes exatos das listas fechadas fornecidas. Nunca cite suspeito, arma ou cômodo '+
+          'que não esteja nelas.\n'+
+          '- Nunca escreva "etc", "entre outros", "e assim por diante" ou qualquer forma de resumir uma lista '+
+          '— sempre liste os itens completos e exatos.\n'+
+          '- O jogador já sabe jogar. NÃO explique regras do jogo, não ensine estratégia genérica de dedução, '+
+          'não dê dicas óbvias como "varie os elementos da sugestão" ou "anote o que os outros mostrarem". '+
+          'Foque 100% no estado ATUAL desta partida específica e no que ela indica.\n'+
+          '- Quanto mais eventos houver no registro da partida, mais específica e aprofundada sua resposta deve '+
+          'ser — cruze sugestões e reações registradas para refinar as probabilidades, em vez de repetir uma '+
+          'resposta genérica.\n'+
+          '- Responda em português, formatado em tópicos curtos (use "- " no início de cada item), com pequenos '+
+          'subtítulos quando fizer sentido separar seções.\n\n';
 
         var instrucaoEspecifica = kind==='resumo'
-          ? 'Faça um RESUMO objetivo dos dados abaixo e uma conclusão DESCRITIVA (não preditiva) sobre o '+
-            'estado atual da investigação deste jogador: o que já está descartado, o que ainda está em aberto, '+
-            'e padrões que você perceber no que já foi sugerido na partida. Não tente advinhar a resposta final.'
-          : 'Gere INSIGHTS e SUGESTÕES DE PRÓXIMAS JOGADAS pra esse jogador — que sugestões fazer a seguir, '+
-            'para quais cômodos tentar ir, e por quê — com base só no que já se sabe pelos dados abaixo. '+
-            'O objetivo é ajudar a estreitar as possibilidades mais rápido. Não invente a resposta final.';
+          ? 'Faça um RESUMO objetivo do estado atual desta partida pra esse jogador, e uma conclusão DESCRITIVA '+
+            '(não preditiva) — o que já está eliminado, o que ainda está em aberto, e qualquer padrão concreto '+
+            'que você identificar cruzando o registro da partida (quem sugeriu o quê, quem mostrou carta pra '+
+            'quem, e assim por diante — liste exemplos concretos, nunca resuma com "etc").'
+          : 'Gere INSIGHTS objetivos e ACIONÁVEIS pra esse jogador, focados em ajudá-lo a GANHAR o jogo o quanto '+
+            'antes (não a aprender a jogar). Estruture assim:\n'+
+            '1) Um RANKING de no máximo 5 combinações completas (suspeito + arma + cômodo) mais prováveis de '+
+            'serem a resposta, cada uma com uma estimativa de chance em porcentagem, construída combinando as '+
+            'probabilidades por categoria já calculadas nos dados. As porcentagens de todas as combinações '+
+            'listadas não precisam somar 100%, mas devem refletir a confiança relativa entre elas.\n'+
+            '2) Uma sugestão concreta de qual seria a MELHOR PRÓXIMA sugestão a fazer na partida (um suspeito + '+
+            'uma arma + um cômodo específicos, todos das listas fechadas), com o motivo direto (ex: qual desses '+
+            'três elementos ainda tem mais candidatos em aberto e por isso vale mais a pena testar agora).\n'+
+            '3) Se o registro da partida já tiver sugestões suficientes de outros jogadores pra cruzar '+
+            'informação, aponte isso explicitamente (ex: "ninguém mostrou carta quando X sugeriu Y, então Y '+
+            'pode ser uma peça real da resposta"). Se ainda não houver dado suficiente pra isso, diga isso '+
+            'objetivamente em uma linha, sem enrolar.';
 
-        var prompt = instrucaoBase + instrucaoEspecifica + '\n\nDADOS:\n' + blocoDados;
+        var prompt = instrucaoBase + instrucaoEspecifica + '\n\nDADOS DESTA PARTIDA:\n' + blocoDados;
 
         if(!GROQ_API_KEY || GROQ_API_KEY === 'COLOQUE_SUA_CHAVE_AQUI'){
           carregando = null;
@@ -295,9 +350,9 @@
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_API_KEY },
           body: JSON.stringify({
             model: GROQ_MODEL,
-            temperature: 0.4,
+            temperature: 0.2,
             messages: [
-              { role: 'system', content: 'Você responde sempre em português, de forma objetiva e organizada em tópicos.' },
+              { role: 'system', content: 'Você responde sempre em português, de forma direta e organizada em tópicos. Nunca usa nomes de suspeitos, armas ou cômodos fora das listas fechadas que o usuário fornecer, e nunca usa a palavra "etc" ou equivalentes para resumir uma lista — sempre lista os itens completos.' },
               { role: 'user', content: prompt }
             ]
           })
