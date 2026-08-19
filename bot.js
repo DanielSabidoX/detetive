@@ -196,7 +196,7 @@
   // ---- Groq (IA da sugestão) ----
   // Uso pessoal: chave direto no código, sem proxy. Gere a sua em
   // https://console.groq.com/keys
-  var GROQ_API_KEY = 'COLOQUE_SUA_CHAVE_AQUI';
+  var GROQ_API_KEY = '';
   var GROQ_MODEL = 'openai/gpt-oss-120b';
   var GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   
@@ -398,6 +398,12 @@
     var handledSuggestion = {};
     var lastTurnKey = null;
     var acting = false;
+
+    // timers de espera por humano mostrar carta (Estratégia 3)
+    var MOCHA_TIMER_MS = 10500;      // tempo para um humano mostrar carta
+    var SUGGEST_TIMEOUT_MS = 16000;  // timeout pra bot passar a vez depois de sugerir
+    var pendingSuggestion = null;    // { timer, suggesterId, trio } para sugestão ativa
+    var watchingSuggestion = null;  // { timer, suggesterName, trio } pra quando alguém sugeriu
 
     function isHost(){
       var s = getSession();
@@ -688,7 +694,18 @@
         })
       }).then(function(){
         try{ if(window.boardMoveToRoom) window.boardMoveToRoom(pick.suspeito, pick.arma, pick.local); }catch(e){}
-        setTimeout(function(){ passarVez(p); }, 6000 + Math.random()*2000);
+
+        // Estratégia 3: não passa a vez imediatamente.
+        // Monitora o log por um "mostrou uma carta" pelos próximos JOGADORES.
+        // Se ninguém mostrar carta em SUGGEST_TIMEOUT_MS, passa a vez.
+        pendingSuggestion = {
+          timer: setTimeout(function(){
+            pendingSuggestion = null;
+            passarVez(p);
+          }, SUGGEST_TIMEOUT_MS),
+          suggesterId: p.id,
+          trio: [pick.suspeito, pick.arma, pick.local]
+        };
       }).catch(function(err){
         console.warn('[bot] falha ao sugerir:', err && err.code, err && err.message);
       });
@@ -738,6 +755,18 @@
     }
 
     var SUGESTAO_RE = /^(.+?) sugeriu: (.+?) \+ (.+?) \+ (.+?)\. Aguardando alguém mostrar uma carta\.$/;
+    var MOSTROU_RE = /mostrou uma? carta/;  // detecta "mostrou uma carta" ou "mostrou uma carta"
+
+    function limparTimersDeEspera(){
+      if(pendingSuggestion){
+        clearTimeout(pendingSuggestion.timer);
+        pendingSuggestion = null;
+      }
+      if(watchingSuggestion){
+        clearTimeout(watchingSuggestion.timer);
+        watchingSuggestion = null;
+      }
+    }
 
     function checkNovasSugestoes(){
       var log = room.log || [];
@@ -748,6 +777,12 @@
       lastLogLen = log.length;
 
       novos.forEach(function(entry){
+        // Estratégia 3: alguém mostrou uma carta? Limpa timers de espera.
+        if(MOSTROU_RE.test(entry.text || '')){
+          limparTimersDeEspera();
+          return;
+        }
+
         var m = SUGESTAO_RE.exec(entry.text || '');
         if(!m) return;
         var suggestionKey = entry.ts + '|' + entry.text;
@@ -770,36 +805,75 @@
 
       var ordemResposta = [];
       for(var i=1;i<=order.length;i++){
-        ordemResposta.push(order[(startIdx+i) % order.length]);
+        var pid = order[(startIdx+i) % order.length];
+        if(pid === suggester.id) break; // volta ao sugestor = ninguém mostrou
+        ordemResposta.push(pid);
       }
 
-      var botsNaOrdem = ordemResposta
-        .map(function(id){ return playerById(id); })
-        .filter(function(p){ return p && p.isBot && !p.eliminated && p.id !== suggester.id; });
+      // Estratégia 3: espera um humano mostrar carta antes de qualquer bot
+      // agir. Percorremos a ordem; humanos = passivo (espera), bots = ativo.
+      var idx = 0;
+      var responded = false;
 
-      (function tentarProximo(i){
-        if(i >= botsNaOrdem.length) return;
-        var bot = botsNaOrdem[i];
-        loadBotMemory(bot.id, function(mem){
-          var match = trio.filter(function(c){ return mem.hand.indexOf(c) >= 0; });
-          if(match.length){
-            var carta = pickRandom(match);
-            setTimeout(function(){
-              notifCol().doc(handKey(roomCode, suggester.id)).set({
-                items: fv().arrayUnion({from: bot.name, card: carta, ts: nowTs()})
-              }, {merge:true}).then(function(){
-                return roomsCol().doc(roomCode).update({
-                  log: fv().arrayUnion({text: bot.name+' mostrou uma carta para '+suggester.name+'.', type:'normal', ts: nowTs()})
-                });
-              }).catch(function(err){
-                console.warn('[bot] falha ao mostrar carta:', err && err.code, err && err.message);
-              });
-            }, 1500 + Math.random()*2500);
-          } else {
+      function clearWatch(){ if(watchingSuggestion){ clearTimeout(watchingSuggestion.timer); } }
+      clearWatch();
+      watchingSuggestion = {
+        suggesterName: suggester.name,
+        trio: trio,
+        timer: setTimeout(function(){
+          if(responded) return;
+          responded = true;
+          // tempo esgotou: nenhum humano mostrou carta, segue pra bots
+          tentarBots();
+        }, MOCHA_TIMER_MS)
+      };
+
+      function tentarBots(){
+        (function tentarProximo(i){
+          if(responded || i >= ordemResposta.length) return;
+          var pid = ordemResposta[i];
+          var p = playerById(pid);
+          if(!p){ tentarProximo(i+1); return; }
+
+          if(!p.isBot){
+            // humano na ordem: nada a fazer, segue
             tentarProximo(i+1);
+            return;
           }
-        });
-      })(0);
+          loadBotMemory(p.id, function(mem){
+            if(responded) return;
+            var match = trio.filter(function(c){ return mem.hand.indexOf(c) >= 0; });
+            if(match.length){
+              responded = true;
+              var carta = pickRandom(match);
+              setTimeout(function(){
+                notifCol().doc(handKey(roomCode, suggester.id)).set({
+                  items: fv().arrayUnion({from: p.name, card: carta, ts: nowTs()})
+                }, {merge:true}).then(function(){
+                  return roomsCol().doc(roomCode).update({
+                    log: fv().arrayUnion({text: p.name+' mostrou uma carta para '+suggester.name+'.', type:'normal', ts: nowTs()})
+                  });
+                }).catch(function(err){
+                  console.warn('[bot] falha ao mostrar carta:', err && err.code, err && err.message);
+                });
+              }, 1500 + Math.random()*2500);
+            } else {
+              tentarProximo(i+1);
+            }
+          });
+        })(0);
+      }
+
+      // Primeiro percorre humanos na ordem. Se algum humano está "entre" o
+      // sugestor e o próximo bot, aguarda MOCHA_TIMER_MS pra ele mostrar.
+      // Se ninguém mostrar nesse tempo, libera os bots.
+      watchingSuggestion.timer = setTimeout(function(){
+        if(responded) return;
+        // Nenhum humano entre o sugestor e o próximo bot mostrou carta.
+        // Dá inicio aos bots.
+        responded = true;
+        tentarBots();
+      }, MOCHA_TIMER_MS);
     }
 
     function tick(){

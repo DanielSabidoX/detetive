@@ -42,7 +42,7 @@
   // ---- Groq ----
   // Uso pessoal: chave direto no código, sem proxy (mesma lógica já usada
   // em bot.js). Gere a sua em https://console.groq.com/keys
-  var GROQ_API_KEY = 'COLOQUE_SUA_CHAVE_AQUI';
+  var GROQ_API_KEY = '';
   var GROQ_MODEL = 'openai/gpt-oss-120b';
   var GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -126,6 +126,14 @@
     function carregarResultado(kind){
       try{ return localStorage.getItem(chaveResultado(kind)) || ''; }catch(e){ return ''; }
     }
+    function limparResultados(){
+      try{
+        localStorage.removeItem(chaveResultado('atual'));
+        // limpa chaves antigas da versão anterior
+        localStorage.removeItem(chaveResultado('resumo'));
+        localStorage.removeItem(chaveResultado('insights'));
+      }catch(e){}
+    }
 
     function render(){
       if(!roomCode){
@@ -137,8 +145,7 @@
       statusEl.textContent = 'Sincronizado — sala ' + roomCode;
       statusEl.classList.add('on');
 
-      var resumo = carregarResultado('resumo');
-      var insights = carregarResultado('insights');
+      var resultadoAtual = carregarResultado('atual');
 
       var html = '<div class="ia-hint">'+
         'Seu assistente pessoal lê só as suas próprias cartas, sua ficha de anotações '+
@@ -155,14 +162,10 @@
       '</div>';
 
       html += '<div class="ia-resultado">';
-      if(resumo){
-        html += '<div class="ia-bloco"><div class="ia-bloco-titulo">📋 Último resumo</div>'+resumo+'</div>';
-      }
-      if(insights){
-        html += '<div class="ia-bloco"><div class="ia-bloco-titulo">💡 Últimos insights</div>'+insights+'</div>';
-      }
-      if(!resumo && !insights){
-        html += '<div class="panel-empty">Nenhuma consulta feita ainda nesta sala.</div>';
+      if(resultadoAtual){
+        html += '<div class="ia-bloco">' + resultadoAtual + '</div>';
+      } else {
+        html += '<div class="panel-empty">Clique em uma opção acima para ver os resultados.</div>';
       }
       html += '</div>';
 
@@ -335,6 +338,8 @@
             'pode ser uma peça real da resposta"). Se ainda não houver dado suficiente pra isso, diga isso '+
             'objetivamente em uma linha, sem enrolar.';
 
+        limparResultados();
+
         var prompt = instrucaoBase + instrucaoEspecifica + '\n\nDADOS DESTA PARTIDA:\n' + blocoDados;
 
         if(!GROQ_API_KEY || GROQ_API_KEY === 'COLOQUE_SUA_CHAVE_AQUI'){
@@ -344,6 +349,8 @@
           setTimeout(render, 50);
           return;
         }
+
+        var titulos = { resumo: '📋 Resumo dos meus dados', insights: '💡 Insights e sugestões' };
 
         fetch(GROQ_URL, {
           method: 'POST',
@@ -359,8 +366,9 @@
         }).then(function(r){ return r.json(); })
           .then(function(data){
             var texto = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-            var respostaHtml = avisoHtml + formatarRespostaIA(texto || '');
-            salvarResultado(kind, respostaHtml);
+            var tituloHtml = '<div class="ia-bloco-titulo">' + (titulos[kind] || '') + '</div>';
+            var respostaHtml = tituloHtml + avisoHtml + formatarRespostaIA(texto || '');
+            salvarResultado('atual', respostaHtml);
             carregando = null;
             render();
           })
