@@ -398,6 +398,7 @@
     var handledSuggestion = {};
     var lastTurnKey = null;
     var acting = false;
+    var botSugestaoNaSala = {}; // botId -> nome da sala onde já sugeriu nesta visita
 
     // timers de espera por humano mostrar carta (Estratégia 3)
     var MOCHA_TIMER_MS = 60000;      // tempo para um humano mostrar carta
@@ -603,19 +604,24 @@
           return;
         }
 
-        // sugere ou acusa usando a sala em que o bot está AGORA — nunca uma
-        // sala livre, igual à regra que vale pros jogadores humanos
-        function agirNaSala(roomName){
-          if(resolvido && faltamLocais[0]===roomName){
-            fazerAcusacao(p, faltamSuspeitos[0], faltamArmas[0], faltamLocais[0]);
-            return;
-          }
-          if(resolvido){
-            // certeza da solução, mas está na sala errada pra acusar — só passa
-            setTimeout(function(){ passarVez(p); }, 1500);
-            return;
-          }
-          var logRecente = (room.log||[]).slice(-15).map(function(e){ return e.text; }).join('\n');
+         // sugere ou acusa usando a sala em que o bot está AGORA — nunca uma
+         // sala livre, igual à regra que vale pros jogadores humanos
+         function agirNaSala(roomName){
+           if(resolvido && faltamLocais[0]===roomName){
+             fazerAcusao(p, faltamSuspeitos[0], faltamArmas[0], faltamLocais[0]);
+             return;
+           }
+           if(resolvido){
+             // certeza da solução, mas está na sala errada pra acusar — só passa
+             setTimeout(function(){ passarVez(p); }, 1500);
+             return;
+           }
+           // trava de visita: registra que o bot já sugeriu nesta sala.
+           // até sair dela (posição muda pra corredor ou outra sala) o bot
+           // não pode sugerir de novo aqui — evita múltiplos palpites em
+           // uma mesma jogada.
+           botSugestaoNaSala[botId] = roomName;
+           var logRecente = (room.log||[]).slice(-15).map(function(e){ return e.text; }).join('\n');
           var ctx = { botId: botId, faltamSuspeitos: faltamSuspeitos, faltamArmas: faltamArmas, faltamLocais: [roomName], logRecente: logRecente };
           escolherSugestaoComIA(ctx, function(pick){
             pick.local = roomName;
@@ -630,13 +636,20 @@
           var pos = pawnsPos[slug] || defaultSpawnFor(roomCode, slug);
           var currentRoom = boardRoomAt(pos.row, pos.col);
 
+          // trava de visita: se o bot saiu da sala onde sugeriu (agora está
+          // em corredor), libera o palpite de novo
+          if(!currentRoom){
+            delete botSugestaoNaSala[botId];
+          }
+          var jaSugeriuNaVisita = currentRoom && botSugestaoNaSala[botId] === currentRoom.name;
+
           if(currentRoom){
             // se a sala atual já não interessa mais (foi eliminada) mas a
             // sala do outro lado da passagem secreta ainda é útil, usa a
             // passagem em vez de sugerir aqui — só custa 1 passo
             var passagemPara = passageFromBoard(currentRoom.name);
             var salaAtualUtil = faltamLocais.indexOf(currentRoom.name) >= 0;
-            if(!salaAtualUtil && passagemPara && faltamLocais.indexOf(passagemPara) >= 0 && value >= 1){
+            if((!salaAtualUtil || jaSugeriuNaVisita) && passagemPara && faltamLocais.indexOf(passagemPara) >= 0 && value >= 1){
               var destRoom = findBoardRoomByName(passagemPara);
               if(destRoom){
                 saveBoardPawnPos(slug, destRoom.anchorRow, destRoom.anchorCol);
@@ -644,6 +657,38 @@
                 setTimeout(function(){ agirNaSala(destRoom.name); }, 1500);
                 return;
               }
+            }
+            if(jaSugeriuNaVisita){
+              // já sugeriu nesta visita à sala: precisa sair dela antes de
+              // poder sugerir de novo. Tenta andar até a porta de outra sala.
+              var alvoNomes = resolvido ? [faltamLocais[0]] : shuffle(faltamLocais);
+              var melhor = null;
+              for(var i=0;i<alvoNomes.length;i++){
+                var alvoRoom2 = findBoardRoomByName(alvoNomes[i]);
+                if(!alvoRoom2) continue;
+                for(var d2=0; d2<alvoRoom2.doors.length; d2++){
+                  var path2 = shortestPath(pos, alvoRoom2.doors[d2]);
+                  if(path2 && (!melhor || path2.length < melhor.path.length)){
+                    melhor = { room: alvoRoom2, path: path2 };
+                  }
+                }
+              }
+              if(!melhor){
+                setTimeout(function(){ passarVez(p); }, 1500);
+                return;
+              }
+              if(melhor.path.length <= value){
+                saveBoardPawnPos(slug, melhor.room.anchorRow, melhor.room.anchorCol);
+                roomsCol().doc(roomCode).update({ 'moveBudget.stepsLeft': 0 }).catch(function(){});
+                setTimeout(function(){ agirNaSala(melhor.room.name); }, 1500);
+              } else {
+                var passos2 = melhor.path.slice(0, value);
+                var fim2 = passos2[passos2.length-1];
+                saveBoardPawnPos(slug, fim2.row, fim2.col);
+                roomsCol().doc(roomCode).update({ 'moveBudget.stepsLeft': 0 }).catch(function(){});
+                setTimeout(function(){ passarVez(p); }, 1500);
+              }
+              return;
             }
             agirNaSala(currentRoom.name);
             return;
@@ -756,6 +801,7 @@
 
     var SUGESTAO_RE = /^(.+?) sugeriu: (.+?) \+ (.+?) \+ (.+?)\. Aguardando alguém mostrar uma carta\.$/;
     var MOSTROU_RE = /mostrou uma? carta/;  // detecta "mostrou uma carta" ou "mostrou uma carta"
+    var MOSTROU_PARA_RE = /^(.+?) mostrou uma? carta para (.+?)\.$/; // captura quem mostrou e quem recebeu
 
     function limparTimersDeEspera(){
       if(pendingSuggestion){
@@ -777,9 +823,29 @@
       lastLogLen = log.length;
 
       novos.forEach(function(entry){
-        // Estratégia 3: alguém mostrou uma carta? Limpa timers de espera.
+        // Estratégia 3: alguém mostrou uma carta?
         if(MOSTROU_RE.test(entry.text || '')){
-          limparTimersDeEspera();
+          var mMostrou = MOSTROU_PARA_RE.exec(entry.text || '');
+          var paraQuem = mMostrou ? mMostrou[2] : null;
+
+          // Se a carta foi mostrada em resposta à sugestão deste bot,
+          // as anotações já foram registradas no doc de notificações.
+          // Agora é só passar a vez para o próximo jogador.
+          if(pendingSuggestion){
+            var passarPlayer = playerById(pendingSuggestion.suggesterId);
+            if(passarPlayer && (!paraQuem || passarPlayer.name === paraQuem)){
+              limparTimersDeEspera();
+              passarVez(passarPlayer);
+              return;
+            }
+          }
+
+          // Se foi em resposta a uma sugestão que este bot estava observando,
+          // pára de observar (mas não toca na sugestão pendente deste bot)
+          if(watchingSuggestion && (!paraQuem || watchingSuggestion.suggesterName === paraQuem)){
+            clearTimeout(watchingSuggestion.timer);
+            watchingSuggestion = null;
+          }
           return;
         }
 
@@ -900,10 +966,13 @@
 
     function listenRoom(code){
       if(unsubRoom){ unsubRoom(); unsubRoom = null; }
-      roomCode = code;
+       roomCode = code;
       lastLogLen = -1;
       lastTurnKey = null;
       handledSuggestion = {};
+      botSugestaoNaSala = {};
+      pendingSuggestion = null;
+      watchingSuggestion = null;
       if(!code || typeof db === 'undefined'){ room = null; render(); return; }
       unsubRoom = roomsCol().doc(code).onSnapshot(function(snap){
         room = snap.exists ? snap.data() : null;
