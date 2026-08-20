@@ -339,6 +339,10 @@ function attachListeners(code, pid){
     state.room = data;
     state.isSpectator = !(data.players||[]).some(function(p){return p.id===state.playerId;}) &&
       (data.spectators||[]).some(function(p){return p.id===state.playerId;});
+    // sincroniza suggestedRoomVisit local com o valor do Firestore
+    if(data.suggestedInRoom && data.suggestedInRoom[state.playerId]){
+      state.suggestedRoomVisit = data.suggestedInRoom[state.playerId];
+    }
     if(state.room.phase!=='lobby' && (state.screen==='lobby' || state.screen==='home')){
       state.screen = 'game';
     }
@@ -401,6 +405,7 @@ async function startGame(){
     turnOrder: players.map(function(p){return p.id;}),
     turnIndex: 0,
     phase: 'playing',
+    suggestedInRoom: {},
     log: fv().arrayUnion({text:'A investigação começou! '+players.length+' detetives receberam suas cartas.', type:'system', ts:nowTs()})
   });
   await batch.commit();
@@ -480,12 +485,16 @@ async function passTurn(){
 async function makeSuggestion(){
   var room = state.room;
   var pick = state.suggestPick;
-  await roomsCol().doc(room.code).update({
+  var update = {
     log: fv().arrayUnion({text:state.name+' sugeriu: '+pick.suspeito+' + '+pick.arma+' + '+pick.local+'. Aguardando alguém mostrar uma carta.', type:'normal', ts:nowTs()})
-  });
+  };
+  // persiste no Firestore qual sala o jogador já sugeriu nesta visita
+  // para sobreviver a F5 / reload
+  update['suggestedInRoom.' + state.playerId] = pick.local;
+  await roomsCol().doc(room.code).update(update);
   // move o peão do suspeito e a arma do palpite para o cômodo indicado
   try{ if(window.boardMoveToRoom) window.boardMoveToRoom(pick.suspeito, pick.arma, pick.local); }catch(e){}
-  state.suggestedRoomVisit = pick.local; // trava "Fazer Palpite" até sair e voltar a entrar nesta sala
+  state.suggestedRoomVisit = pick.local; // trava local para resposta imediata
   state.showSuggestModal = false;
   render();
 }
@@ -908,11 +917,21 @@ function renderGame(){
     // de outra sala) — nesse caso libera o palpite de novo. Enquanto o
     // jogador ficar na mesma sala sem sair, mesmo em turnos seguintes, o
     // palpite continua travado.
+    // Lê do Firestore (room.suggestedInRoom) para sobreviver a F5.
+    var firestoreSuggested = (room.suggestedInRoom && room.suggestedInRoom[state.playerId]) || null;
     if(myRoom !== state.lastSeenRoom){
-      if(myRoom) state.suggestedRoomVisit = null;
+      // se o jogador saiu da sala onde sugeriu, limpa o registro no Firestore
+      if(state.lastSeenRoom && firestoreSuggested === state.lastSeenRoom && state.lastSeenRoom !== myRoom){
+        var clearUpdate = {};
+        clearUpdate['suggestedInRoom.' + state.playerId] = fv().deleteField();
+        roomsCol().doc(room.code).update(clearUpdate).catch(function(){});
+      }
+      state.suggestedRoomVisit = null;
       state.lastSeenRoom = myRoom;
     }
-    var jaSugeriuNestaVisita = myRoom && state.suggestedRoomVisit === myRoom;
+    // usa o valor do Firestore se disponível, senão o local
+    var effectiveSuggested = firestoreSuggested || state.suggestedRoomVisit;
+    var jaSugeriuNestaVisita = myRoom && effectiveSuggested === myRoom;
 
     // quantos passos do dado ainda restam pra mim neste turno (null = ainda
     // nem rolei o dado) — usado só pra decidir qual botão pulsar
