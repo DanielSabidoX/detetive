@@ -404,7 +404,7 @@
     var MOCHA_TIMER_MS = 15000;      // tempo para um humano mostrar carta
     var SUGGEST_TIMEOUT_MS = 25000;  // timeout pra bot passar a vez depois de sugerir
     var pendingSuggestion = null;    // { timer, suggesterId, trio } para sugestão ativa
-    var watchingSuggestion = null;  // { timer, suggesterName, trio } pra quando alguém sugeriu
+    var watchingSuggestions = {};  // map: suggesterName -> { timer, trio } pra quando alguém sugeriu
 
     function isHost(){
       var s = getSession();
@@ -808,10 +808,10 @@
         clearTimeout(pendingSuggestion.timer);
         pendingSuggestion = null;
       }
-      if(watchingSuggestion){
-        clearTimeout(watchingSuggestion.timer);
-        watchingSuggestion = null;
-      }
+      Object.keys(watchingSuggestions).forEach(function(key){
+        clearTimeout(watchingSuggestions[key].timer);
+        delete watchingSuggestions[key];
+      });
     }
 
     function checkNovasSugestoes(){
@@ -842,9 +842,9 @@
 
           // Se foi em resposta a uma sugestão que este bot estava observando,
           // pára de observar (mas não toca na sugestão pendente deste bot)
-          if(watchingSuggestion && (!paraQuem || watchingSuggestion.suggesterName === paraQuem)){
-            clearTimeout(watchingSuggestion.timer);
-            watchingSuggestion = null;
+          if(paraQuem && watchingSuggestions[paraQuem]){
+            clearTimeout(watchingSuggestions[paraQuem].timer);
+            delete watchingSuggestions[paraQuem];
           }
           return;
         }
@@ -888,14 +888,12 @@
       });
       var waitMs = hasHumanResponder ? MOCHA_TIMER_MS : 3000;
 
-      function clearWatch(){ if(watchingSuggestion){ clearTimeout(watchingSuggestion.timer); } }
+      function clearWatch(){ if(watchingSuggestions[suggester.name]){ clearTimeout(watchingSuggestions[suggester.name].timer); } }
       clearWatch();
-      watchingSuggestion = {
-        suggesterName: suggester.name,
+      watchingSuggestions[suggester.name] = {
         trio: trio,
         timer: setTimeout(function(){
           if(responded) return;
-          responded = true;
           // tempo esgotou: nenhum humano mostrou carta, segue pra bots
           tentarBots();
         }, waitMs)
@@ -939,9 +937,11 @@
     }
 
     function tick(){
-      if(!room || !isHost() || room.phase !== 'playing') return;
+      if(!room || room.phase !== 'playing') return;
 
       checkNovasSugestoes();
+
+      if(!isHost()) return;
 
       var activeId = activePlayerAt(room);
       if(!activeId) return;
@@ -968,7 +968,7 @@
       handledSuggestion = {};
       botSugestaoNaSala = {};
       pendingSuggestion = null;
-      watchingSuggestion = null;
+      watchingSuggestions = {};
       if(!code || typeof db === 'undefined'){ room = null; render(); return; }
       unsubRoom = roomsCol().doc(code).onSnapshot(function(snap){
         room = snap.exists ? snap.data() : null;
