@@ -1049,7 +1049,13 @@
           var off = pieceOffset(groups, pos, 'pawns', slot.slug);
 
           var el = document.createElement('div');
-          el.className = 'tab-pawn'+(slot.owner ? '' : ' unowned');
+          var cls = 'tab-pawn';
+          if(slot.owner){
+            if(slot.owner.id === activePlayerId()){ cls += ' tab-pawn-current-turn'; }
+          } else {
+            cls += ' unowned';
+          }
+          el.className = cls;
           el.style.left = (center.x + off.dx) + 'px';
           el.style.top  = (center.y + off.dy) + 'px';
           el.style.zIndex = '6';

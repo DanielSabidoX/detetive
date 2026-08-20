@@ -401,8 +401,8 @@
     var botSugestaoNaSala = {}; // botId -> nome da sala onde já sugeriu nesta visita
 
     // timers de espera por humano mostrar carta (Estratégia 3)
-    var MOCHA_TIMER_MS = 60000;      // tempo para um humano mostrar carta
-    var SUGGEST_TIMEOUT_MS = 66000;  // timeout pra bot passar a vez depois de sugerir
+    var MOCHA_TIMER_MS = 15000;      // tempo para um humano mostrar carta
+    var SUGGEST_TIMEOUT_MS = 25000;  // timeout pra bot passar a vez depois de sugerir
     var pendingSuggestion = null;    // { timer, suggesterId, trio } para sugestão ativa
     var watchingSuggestion = null;  // { timer, suggesterName, trio } pra quando alguém sugeriu
 
@@ -878,8 +878,15 @@
 
       // Estratégia 3: espera um humano mostrar carta antes de qualquer bot
       // agir. Percorremos a ordem; humanos = passivo (espera), bots = ativo.
-      var idx = 0;
       var responded = false;
+
+      // Só precisa esperar se há humanos na ordem de resposta. Se todos
+      // os responderem forem bots, libera quase que imediatamente.
+      var hasHumanResponder = ordemResposta.some(function(pid){
+        var p = playerById(pid);
+        return p && !p.isBot;
+      });
+      var waitMs = hasHumanResponder ? MOCHA_TIMER_MS : 3000;
 
       function clearWatch(){ if(watchingSuggestion){ clearTimeout(watchingSuggestion.timer); } }
       clearWatch();
@@ -891,7 +898,7 @@
           responded = true;
           // tempo esgotou: nenhum humano mostrou carta, segue pra bots
           tentarBots();
-        }, MOCHA_TIMER_MS)
+        }, waitMs)
       };
 
       function tentarBots(){
@@ -929,17 +936,6 @@
           });
         })(0);
       }
-
-      // Primeiro percorre humanos na ordem. Se algum humano está "entre" o
-      // sugestor e o próximo bot, aguarda MOCHA_TIMER_MS pra ele mostrar.
-      // Se ninguém mostrar nesse tempo, libera os bots.
-      watchingSuggestion.timer = setTimeout(function(){
-        if(responded) return;
-        // Nenhum humano entre o sugestor e o próximo bot mostrou carta.
-        // Dá inicio aos bots.
-        responded = true;
-        tentarBots();
-      }, MOCHA_TIMER_MS);
     }
 
     function tick(){
