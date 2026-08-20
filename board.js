@@ -522,7 +522,19 @@
     function pushView(){
       if(!zoomSyncOn || applyingRemote) return;
       if(!roomCode || typeof db === 'undefined') return;
-      var payload = { zoom:zoom, panX:panX, panY:panY, by:CLIENT_ID, at:Date.now() };
+      // normaliza pan e zoom pro tabuleiro ficar igual em telas de tamanhos diferentes
+      var boardW = cellPx * SIZE + (SIZE-1) * GAP_PX;
+      var boardH = boardW; // tabuleiro é quadrado
+      var vw = boardWrap ? (boardWrap.clientWidth || 0) : 0;
+      var vh = boardWrap ? (boardWrap.clientHeight || 0) : 0;
+      var centerX = boardW > 0 ? (vw/2 - panX) / (zoom * boardW) : 0.5;
+      var centerY = boardH > 0 ? (vh/2 - panY) / (zoom * boardH) : 0.5;
+      // envia dimensões do remetente para o receptor calcular zoom local proporcional
+      var payload = {
+        zoom:zoom, centerX:centerX, centerY:centerY,
+        senderBoardW:boardW, senderVw:vw,
+        by:CLIENT_ID, at:Date.now()
+      };
       db.collection('board_positions').doc(roomCode)
         .set({ view: payload }, {merge:true})
         .catch(function(err){
@@ -541,8 +553,29 @@
       if(Date.now() - focusLockUntil < 0) return;
       if(v.at && v.at < focusAtLocal) return;
       applyingRemote = true;
-      zoom = clampZoom(v.zoom);
-      panX = v.panX || 0; panY = v.panY || 0;
+
+      var localBoardW = cellPx * SIZE + (SIZE-1) * GAP_PX;
+      var localBoardH = localBoardW;
+      var localVw = boardWrap ? (boardWrap.clientWidth || 0) : 0;
+      var localVh = boardWrap ? (boardWrap.clientHeight || 0) : 0;
+
+      if(typeof v.centerX === 'number' && v.senderBoardW && v.senderVw){
+        // zoom proporcional: ajusta pro tabuleiro local ter a mesma fração visível
+        var localZoom = v.zoom * (localVw / v.senderVw) * (v.senderBoardW / localBoardW);
+        zoom = clampZoom(localZoom);
+        panX = localVw/2 - v.centerX * localBoardW * zoom;
+        panY = localVh/2 - v.centerY * localBoardH * zoom;
+      } else if(typeof v.centerX === 'number'){
+        // sem dados do remetente, usa só center normalizado
+        zoom = clampZoom(v.zoom);
+        panX = localVw/2 - v.centerX * localBoardW * zoom;
+        panY = localVh/2 - v.centerY * localBoardH * zoom;
+      } else {
+        // compatibilidade: cliente antigo, panX/panY direto
+        zoom = clampZoom(v.zoom);
+        panX = v.panX || 0; panY = v.panY || 0;
+      }
+
       applyTransform();
       saveZoom();
       applyingRemote = false;
@@ -550,7 +583,15 @@
     function setZoomSyncEnabled(on){
       if(!roomCode || typeof db === 'undefined') return;
       var data = { zoomSync: { enabled: !!on, at: Date.now() } };
-      if(on) data.view = { zoom:zoom, panX:panX, panY:panY, by:CLIENT_ID, at:Date.now() };
+      if(on){
+        var boardW = cellPx * SIZE + (SIZE-1) * GAP_PX;
+        var boardH = boardW;
+        var vw = boardWrap ? (boardWrap.clientWidth || 0) : 0;
+        var vh = boardWrap ? (boardWrap.clientHeight || 0) : 0;
+        var centerX = boardW > 0 ? (vw/2 - panX) / (zoom * boardW) : 0.5;
+        var centerY = boardH > 0 ? (vh/2 - panY) / (zoom * boardH) : 0.5;
+        data.view = { zoom:zoom, centerX:centerX, centerY:centerY, senderBoardW:boardW, senderVw:vw, by:CLIENT_ID, at:Date.now() };
+      }
       db.collection('board_positions').doc(roomCode).set(data, {merge:true})
         .catch(function(err){
           console.warn('[tabuleiro] não foi possível alterar o zoom sincronizado:', err && err.code, err && err.message);
