@@ -193,7 +193,7 @@
         var minhasNotas = notesSnap.exists ? (notesSnap.data().data || null) : null;
         var roomData = roomSnap.exists ? roomSnap.data() : {};
         // importante: NUNCA lemos/usamos roomData.secret aqui
-        var log = (roomData.log || []).slice(-40); // últimas entradas bastam de contexto
+        var log = (roomData.log || []).slice(-80); // últimas 80 entradas para ter mais contexto
         cb({ mao: minhaMao, mostradas: mostradas, notas: minhasNotas, log: log });
       }).catch(function(err){
         console.warn('[assistente] falha ao coletar dados:', err && err.code, err && err.message);
@@ -223,11 +223,39 @@
     // cartas mostradas a você, IGNORANDO se a ficha foi marcada ou não —
     // essa é a fonte da verdade) e o que ainda está em aberto, com um
     // peso simples (marcado "?" pesa mais) pra estimar probabilidade.
+    // Também cruza com o log pra ajustar pesos: cartas que apareceram
+    // em sugestões onde NINGUÉM mostrou carta ganham peso maior.
     function calcularCandidatos(dados){
       var notas = dados.notas || { suspeito:{}, arma:{}, local:{} };
       var conhecidoNao = {};
       dados.mao.forEach(function(c){ conhecidoNao[c] = true; });
       dados.mostradas.forEach(function(it){ conhecidoNao[it.card] = true; });
+
+      // analisa o log pra contar: quantas vezes cada carta apareceu em
+      // sugestões onde NINGUÉM mostrou carta (indica que é provável resposta)
+      var SUG_RE = /(.+?) sugeriu: (.+?) \+ (.+?) \+ (.+?)\. Aguardando/;
+      var MOSTROU_RE = /mostrou uma? carta/;
+      var nenhumMostrou = {};  // carta -> quantas sugestões sem resposta
+      var log = dados.log || [];
+      for(var i=0; i<log.length; i++){
+        var entry = log[i];
+        var text = entry.text || '';
+        if(!SUG_RE.test(text)) continue;
+        var m = SUG_RE.exec(text);
+        var sugCartas = [m[2], m[3], m[4]];
+        // verifica se ALGUÉM mostrou carta depois desta sugestão
+        var alguemMostrou = false;
+        for(var j=i+1; j<Math.min(i+10, log.length); j++){
+          var next = log[j].text || '';
+          if(SUG_RE.test(next)) break; // nova sugestão = fim dessa rodada
+          if(MOSTROU_RE.test(next)){ alguemMostrou = true; break; }
+        }
+        if(!alguemMostrou){
+          sugCartas.forEach(function(c){
+            nenhumMostrou[c] = (nenhumMostrou[c] || 0) + 1;
+          });
+        }
+      }
 
       function processarCategoria(cat, todasAsOpcoes){
         var restantes = [];
@@ -236,8 +264,12 @@
           var marcadoDescartado = (notas[cat] && notas[cat][nome]) === 'x';
           if(conhecidoNao[nome] || marcadoDescartado) return; // eliminado
           restantes.push(nome);
+          var peso = 1;
           var marcadoSuspeita = (notas[cat] && notas[cat][nome]) === '?';
-          pesos[nome] = marcadoSuspeita ? 2 : 1;
+          if(marcadoSuspeita) peso += 1;
+          // carta que apareceu em sugestão sem ninguém mostrar = mais provável
+          if(nenhumMostrou[nome]) peso += nenhumMostrou[nome] * 0.5;
+          pesos[nome] = peso;
         });
         var somaPesos = restantes.reduce(function(s,n){ return s+pesos[n]; }, 0) || 1;
         var comPercentual = restantes.map(function(nome){
@@ -260,19 +292,35 @@
         : '(nenhuma até agora)';
 
       var candidatos = calcularCandidatos(dados);
-      var logTexto = dados.log.map(function(e){ return '['+e.ts+'] '+e.text; }).join('\n') || '(sem eventos ainda)';
 
-      return 'LISTAS FECHADAS DO JOGO (não existe NENHUM suspeito, arma ou cômodo além destes — nunca cite nomes fora destas listas):\n'+
-        '- Suspeitos possíveis no jogo: '+SUSPEITOS.join(', ')+'\n'+
-        '- Armas possíveis no jogo: '+ARMAS.join(', ')+'\n'+
-        '- Cômodos possíveis no jogo: '+LOCAIS.join(', ')+'\n\n'+
-        'SUAS CARTAS (certeza de que NÃO são a resposta):\n'+mao+'\n\n'+
-        'CARTAS JÁ MOSTRADAS A VOCÊ POR OUTROS JOGADORES (também certeza de que NÃO são a resposta):\n'+mostradas+'\n\n'+
-        'CANDIDATOS AINDA EM ABERTO, JÁ CALCULADOS PRA VOCÊ (com peso estimado — use estes números como base, não invente novos nomes nem novas porcentagens do zero):\n'+
+      // formata o log de forma mais legível pra IA
+      var logLinhas = dados.log.map(function(e){
+        var t = e.text || '';
+        // simplifica tipos de evento
+        if(/sugeriu:/.test(t)) return '[SUGESTÃO] ' + t.replace('. Aguardando alguém mostrar uma carta.', '');
+        if(/mostrou uma? carta/.test(t)) return '[CARTA MOSTRADA] ' + t;
+        if(/passou a vez/.test(t)) return '[PASSOU] ' + t;
+        if(/acusação final/.test(t)) return '[ACUSAÇÃO] ' + t;
+        if(/resolveu o caso/.test(t)) return '[RESOLVIDO] ' + t;
+        return '[INFO] ' + t;
+      });
+      var logTexto = logLinhas.join('\n') || '(sem eventos ainda)';
+
+      return '=== DADOS DESTA PARTIDA (use SOMENTE estes dados, não invente nada) ===\n\n'+
+        'CARTAS EXISTENTES NO JOGO (estas são TODAS as opções possíveis — nunca cite algo fora desta lista):\n'+
+        '- Suspeitos: '+SUSPEITOS.join(', ')+'\n'+
+        '- Armas: '+ARMAS.join(', ')+'\n'+
+        '- Cômodos: '+LOCAIS.join(', ')+'\n\n'+
+        'SUAS CARTAS (você tem na mão — são certeza de que NÃO são a resposta):\n'+
+        mao+'\n\n'+
+        'CARTAS QUE OUTROS JOGADORES TE MOSTRARAM (também certeza de que NÃO são a resposta):\n'+
+        mostradas+'\n\n'+
+        'CANDIDATOS AINDA EM ABERTO (cálculo automático com base nas suas cartas, cartas mostradas, notas e registro):\n'+
         '- Suspeitos em aberto: '+candidatos.suspeito.texto+'\n'+
         '- Armas em aberto: '+candidatos.arma.texto+'\n'+
         '- Cômodos em aberto: '+candidatos.local.texto+'\n\n'+
-        'REGISTRO PÚBLICO DA PARTIDA (mais recentes primeiro):\n'+logTexto;
+        'REGISTRO DA PARTIDA (em ordem cronológica, do mais antigo ao mais recente):\n'+
+        logTexto;
     }
 
     function rodarConsulta(kind){
@@ -298,49 +346,33 @@
         var blocoDados = montarBlocoDados(dados);
 
         var instrucaoBase =
-          'Você é o assistente pessoal de UM jogador específico, EM UMA PARTIDA REAL de um jogo de dedução '+
-          'estilo Detetive/Clue com listas de suspeitos, armas e cômodos PRÓPRIAS (diferentes do jogo clássico '+
-          'original — não use nomes como "Sr. Verde", "Conservatório", "Sala de Bilhar" ou qualquer outro nome '+
-          'que não esteja EXPLICITAMENTE nas listas fechadas abaixo). '+
-          'Você NÃO sabe e NUNCA deve tentar adivinhar ou inventar qual é a resposta correta do caso — mas PODE '+
-          'e DEVE trabalhar com as probabilidades já calculadas nos dados fornecidos. '+
-          'Baseie-se SOMENTE nos dados abaixo, que pertencem exclusivamente a este jogador.\n\n'+
-          'REGRAS DE FORMATO E CONTEÚDO (importantes):\n'+
-          '- Use APENAS os nomes exatos das listas fechadas fornecidas. Nunca cite suspeito, arma ou cômodo '+
-          'que não esteja nelas.\n'+
-          '- Nunca escreva "etc", "entre outros", "e assim por diante" ou qualquer forma de resumir uma lista '+
-          '— sempre liste os itens completos e exatos.\n'+
-          '- O jogador já sabe jogar. NÃO explique regras do jogo, não ensine estratégia genérica de dedução, '+
-          'não dê dicas óbvias como "varie os elementos da sugestão" ou "anote o que os outros mostrarem". '+
-          'Foque 100% no estado ATUAL desta partida específica e no que ela indica.\n'+
-          '- Quanto mais eventos houver no registro da partida, mais específica e aprofundada sua resposta deve '+
-          'ser — cruze sugestões e reações registradas para refinar as probabilidades, em vez de repetir uma '+
-          'resposta genérica.\n'+
-          '- Responda em português, formatado em tópicos curtos (use "- " no início de cada item), com pequenos '+
-          'subtítulos quando fizer sentido separar seções.\n\n';
+          'Você é o assistente pessoal de UM jogador num jogo de dedução estilo Detetive/Clue.\n'+
+          'Você NÃO sabe e NUNCA deve tentar adivinhar a resposta do caso.\n'+
+          'Trabalhe SOMENTE com os dados fornecidos abaixo — não invente dados, nomes, porcentagens nem combinações.\n\n'+
+          'REGRAS OBRIGÁRIAS (violação = resposta errada):\n'+
+          '1. Use SOMENTE os nomes exatos das listas fornecidas. NUNCA cite algo fora delas.\n'+
+          '2. NUNCA escreva "etc", "entre outros" ou resuma listas — sempre liste tudo.\n'+
+          '3. As porcentagens e probabilidades já estão calculadas nos dados. NÃO recalcule — use-as como estão.\n'+
+          '4. NÃO explique regras do jogo. Foque 100% no estado atual desta partida.\n'+
+          '5. Responda em português, em tópicos curtos ("- " no início de cada item).\n'+
+          '6. Se o registro tiver poucos eventos, seja breve e diga que falta informação.\n'+
+          '7. NUNCA invente cartas mostradas, sugestões de outros jogadores ou eventos que não estejam no registro.\n\n';
 
         var instrucaoEspecifica = kind==='resumo'
-          ? 'Faça um RESUMO objetivo do estado atual desta partida pra esse jogador, e uma conclusão DESCRITIVA '+
-            '(não preditiva) — o que já está eliminado, o que ainda está em aberto, e qualquer padrão concreto '+
-            'que você identificar cruzando o registro da partida (quem sugeriu o quê, quem mostrou carta pra '+
-            'quem, e assim por diante — liste exemplos concretos, nunca resuma com "etc").'
-          : 'Gere INSIGHTS objetivos e ACIONÁVEIS pra esse jogador, focados em ajudá-lo a GANHAR o jogo o quanto '+
-            'antes (não a aprender a jogar). Estruture assim:\n'+
-            '1) Um RANKING de no máximo 5 combinações completas (suspeito + arma + cômodo) mais prováveis de '+
-            'serem a resposta, cada uma com uma estimativa de chance em porcentagem, construída combinando as '+
-            'probabilidades por categoria já calculadas nos dados. As porcentagens de todas as combinações '+
-            'listadas não precisam somar 100%, mas devem refletir a confiança relativa entre elas.\n'+
-            '2) Uma sugestão concreta de qual seria a MELHOR PRÓXIMA sugestão a fazer na partida (um suspeito + '+
-            'uma arma + um cômodo específicos, todos das listas fechadas), com o motivo direto (ex: qual desses '+
-            'três elementos ainda tem mais candidatos em aberto e por isso vale mais a pena testar agora).\n'+
-            '3) Se o registro da partida já tiver sugestões suficientes de outros jogadores pra cruzar '+
-            'informação, aponte isso explicitamente (ex: "ninguém mostrou carta quando X sugeriu Y, então Y '+
-            'pode ser uma peça real da resposta"). Se ainda não houver dado suficiente pra isso, diga isso '+
-            'objetivamente em uma linha, sem enrolar.';
+          ? 'RESUMO DO ESTADO ATUAL:\n'+
+            '- Liste o que já foi eliminado (cartas que você tem + cartas que te mostraram).\n'+
+            '- Liste os candidatos em aberto por categoria, usando as porcentagens fornecidas.\n'+
+            '- Se houver eventos relevantes no registro (ex: "ninguém mostrou carta quando X foi sugerido"), cite-os como fatos — não como opinião.\n'+
+            '- Seja direto e conciso.'
+          : 'INSIGHTS E SUGESTÕES:\n'+
+            '1) RANKING de até 5 combinações (suspeito + arma + cômodo) mais prováveis. Use as porcentagens por categoria já calculadas — multiplique as porcentagens de cada categoria pra estimar a chance de cada combinação.\n'+
+            '2) MELHOR PRÓXIMA SUGESTÃO: qual trio (suspeito + arma + cômodo) testar agora, com motivo direto baseado nos dados.\n'+
+            '3) Se o registro tiver sugestões de outros jogadores onde ninguém mostrou carta, aponte isso como sinal forte de que essas cartas podem ser a resposta.\n'+
+            '4) Se faltar informação pra alguma conclusão, diga isso em uma linha — não invente.';
 
         limparResultados();
 
-        var prompt = instrucaoBase + instrucaoEspecifica + '\n\nDADOS DESTA PARTIDA:\n' + blocoDados;
+        var prompt = instrucaoBase + instrucaoEspecifica + '\n\nDADOS:\n' + blocoDados;
 
         if(!GROQ_API_KEY || GROQ_API_KEY === 'COLOQUE_SUA_CHAVE_AQUI'){
           carregando = null;
@@ -359,7 +391,7 @@
             model: GROQ_MODEL,
             temperature: 0.2,
             messages: [
-              { role: 'system', content: 'Você responde sempre em português, de forma direta e organizada em tópicos. Nunca usa nomes de suspeitos, armas ou cômodos fora das listas fechadas que o usuário fornecer, e nunca usa a palavra "etc" ou equivalentes para resumir uma lista — sempre lista os itens completos.' },
+              { role: 'system', content: 'Você é um assistente de um jogo de dedução. Responda SOMENTE com base nos dados fornecidos. NUNCA invente nomes, porcentagens ou eventos. Use SOMENTE os nomes exatos das listas dadas. Formate em tópicos curtos em português.' },
               { role: 'user', content: prompt }
             ]
           })
