@@ -86,6 +86,25 @@ var unsubHand = null;
 var unsubNotify = null;
 var unsubNotes = null;
 
+// ---- Wake Lock: mantém a tela acesa durante a partida ----
+var wakeLockSentinel = null;
+async function requestWakeLock(){
+  try{
+    if(!navigator.wakeLock) return;
+    if(wakeLockSentinel) return;
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', function(){ wakeLockSentinel = null; });
+  }catch(e){}
+}
+function releaseWakeLock(){
+  try{ if(wakeLockSentinel){ wakeLockSentinel.release(); wakeLockSentinel = null; } }catch(e){}
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible' && state.screen==='game' && state.room && state.room.phase==='playing'){
+    requestWakeLock();
+  }
+});
+
 function esc(s){
   return String(s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
@@ -346,6 +365,8 @@ function attachListeners(code, pid){
     if(state.room.phase!=='lobby' && (state.screen==='lobby' || state.screen==='home')){
       state.screen = 'game';
     }
+    // mantém tela acesa durante a partida
+    if(state.room.phase==='playing') requestWakeLock(); else releaseWakeLock();
     render();
   });
 
@@ -440,6 +461,7 @@ async function cancelRoom(){
   });
   detachListeners();
   clearSession();
+  releaseWakeLock();
   state.screen = 'home';
   state.room = null;
   state.code = '';
@@ -740,6 +762,7 @@ async function leaveLobby(){
 function goHome(){
   detachListeners();
   clearSession();
+  releaseWakeLock();
   state.screen = 'home';
   state.room = null;
   state.code = '';
