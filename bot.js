@@ -401,8 +401,8 @@
     var botSugestaoNaSala = {}; // botId -> nome da sala onde já sugeriu nesta visita
 
     // timers de espera por humano mostrar carta (Estratégia 3)
-    var MOCHA_TIMER_MS = 15000;      // tempo para um humano mostrar carta
-    var SUGGEST_TIMEOUT_MS = 25000;  // timeout pra bot passar a vez depois de sugerir
+    var MOCHA_TIMER_MS = 60000;      // tempo para um humano mostrar carta
+    var SUGGEST_TIMEOUT_MS = 90000;  // timeout pra bot passar a vez depois de sugerir
     var pendingSuggestion = null;    // { timer, suggesterId, trio } para sugestão ativa
     var watchingSuggestions = {};  // map: suggesterName -> { timer, trio } pra quando alguém sugeriu
 

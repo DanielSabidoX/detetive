@@ -267,14 +267,23 @@
           ? { row: r0+BLOCK-1, col: c0-1 }  // coluna direita -> porta olha pra esquerda (linha de baixo)
           : { row: r0, col: c0+BLOCK };     // colunas esquerda/meio -> porta olha pra direita (linha de cima)
 
+        // Escritório (centro do tabuleiro): 4 portas (uma pra cada lado)
+        var doors = [doorSouth, doorSide];
+        if(name === 'Escritório'){
+          var doorNorth = { row: r0-1, col: c0+2 };
+          var doorWest  = { row: r0+2, col: c0-1 };
+          doors.push(doorNorth, doorWest);
+        }
+
         rooms.push({
           name:name, r0:r0, c0:c0, ri:ri, ci:ci,
           anchorRow: r0+CENTER_OFFSET, anchorCol: c0+CENTER_OFFSET,
           color: color,
-          doors: [doorSouth, doorSide]
+          doors: doors
         });
-        doorOwner[doorSouth.row+','+doorSouth.col] = {color:color, name:name};
-        doorOwner[doorSide.row+','+doorSide.col] = {color:color, name:name};
+        doors.forEach(function(d){
+          doorOwner[d.row+','+d.col] = {color:color, name:name};
+        });
 
         for(var dr=0; dr<BLOCK; dr++){
           for(var dc=0; dc<BLOCK; dc++){
@@ -323,6 +332,7 @@
   // diferenciar as duas portas quando ambas pertencem à mesma sala
   function doorLabel(room, door){
     if(door.row > room.r0 + BLOCK - 1) return 'porta de baixo';
+    if(door.row < room.r0) return 'porta de cima';
     if(door.col < room.c0) return 'porta da esquerda';
     if(door.col > room.c0 + BLOCK - 1) return 'porta da direita';
     return 'porta';
